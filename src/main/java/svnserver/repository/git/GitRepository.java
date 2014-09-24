@@ -11,7 +11,6 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.RenameDetector;
 import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
@@ -140,7 +139,7 @@ public class GitRepository implements VcsRepository {
       final int lastRevision = revisions.size() - 1;
       final ObjectId lastCommitId;
       if (lastRevision >= 0) {
-        lastCommitId = revisions.get(lastRevision).getGitNewCommit();
+        lastCommitId = revisions.get(lastRevision).getGitCommit();
         final Ref head = repository.getRef(svnBranch);
         if (head.getObjectId().equals(lastCommitId)) {
           return false;
@@ -221,7 +220,7 @@ public class GitRepository implements VcsRepository {
     try {
       final int lastRevision = revisions.size() - 1;
       if (lastRevision >= 0) {
-        final ObjectId lastCommitId = revisions.get(lastRevision).getGitNewCommit();
+        final ObjectId lastCommitId = revisions.get(lastRevision).getGitCommit();
         final Ref master = repository.getRef(gitBranch);
         if ((master == null) || (master.getObjectId().equals(lastCommitId))) {
           return false;
@@ -312,10 +311,6 @@ public class GitRepository implements VcsRepository {
     }
   }
 
-  private boolean isTreeEmpty(RevTree tree) throws IOException {
-    return new CanonicalTreeParser(GitRepository.emptyBytes, repository.newObjectReader(), tree).eof();
-  }
-
   private void loadRevisionInfo(@NotNull RevCommit commit) throws IOException, SVNException {
     final RevWalk revWalk = new RevWalk(repository.newObjectReader());
     final CacheRevision cacheRevision = LayoutHelper.loadCacheRevision(revWalk.getObjectReader(), commit);
@@ -336,7 +331,7 @@ public class GitRepository implements VcsRepository {
         return result;
       });
     }
-    final GitRevision revision = new GitRevision(this, commit.getId(), cacheRevision.getRevisionId(), copyFroms, oldCommit, svnCommit, commit.getCommitTime());
+    final GitRevision revision = new GitRevision(this, commit, cacheRevision.getRevisionId(), copyFroms, oldCommit, svnCommit);
     if (cacheRevision.getRevisionId() > 0) {
       if (revisionByDate.isEmpty() || revisionByDate.lastKey() <= revision.getDate()) {
         revisionByDate.put(revision.getDate(), revision);
@@ -717,7 +712,7 @@ public class GitRepository implements VcsRepository {
     }
 
     private Iterable<GitTreeEntry> getOriginalTree() throws IOException {
-      final RevCommit commit = revision.getGitNewCommit();
+      final RevCommit commit = revision.getGitCommit();
       if (commit == null) {
         return Collections.emptyList();
       }
@@ -827,7 +822,7 @@ public class GitRepository implements VcsRepository {
         commitBuilder.setAuthor(ident);
         commitBuilder.setCommitter(ident);
         commitBuilder.setMessage(message);
-        final RevCommit parentCommit = revision.getGitNewCommit();
+        final RevCommit parentCommit = revision.getGitCommit();
         if (parentCommit != null) {
           commitBuilder.setParentId(parentCommit.getId());
         }

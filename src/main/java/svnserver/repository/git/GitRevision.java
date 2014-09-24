@@ -33,32 +33,29 @@ import java.util.concurrent.TimeUnit;
 public class GitRevision implements VcsRevision {
   @NotNull
   private final GitRepository repo;
-  @NotNull
-  private final ObjectId cacheCommit;
   @Nullable
   private final GitRevision previous;
+  @NotNull
+  private final RevCommit cacheCommit;
   @Nullable
-  private final RevCommit gitNewCommit;
+  private final RevCommit gitCommit;
 
   @NotNull
   private final Map<String, VcsCopyFrom> renames;
-  private final long date;
   private final int revision;
 
   public GitRevision(@NotNull GitRepository repo,
-                     @NotNull ObjectId cacheCommit,
+                     @NotNull RevCommit cacheCommit,
                      int revision,
                      @NotNull Map<String, VcsCopyFrom> renames,
                      @Nullable GitRevision previous,
-                     @Nullable RevCommit gitNewCommit,
-                     int commitTimeSec) {
+                     @Nullable RevCommit gitCommit) {
     this.repo = repo;
     this.cacheCommit = cacheCommit;
     this.revision = revision;
     this.renames = renames;
     this.previous = previous;
-    this.gitNewCommit = gitNewCommit;
-    this.date = TimeUnit.SECONDS.toMillis(commitTimeSec);
+    this.gitCommit = gitCommit;
   }
 
   @NotNull
@@ -72,14 +69,14 @@ public class GitRevision implements VcsRevision {
   }
 
   @Nullable
-  public RevCommit getGitNewCommit() {
-    return gitNewCommit;
+  public RevCommit getGitCommit() {
+    return gitCommit;
   }
 
   @NotNull
   @Override
   public Map<String, GitLogEntry> getChanges() throws IOException, SVNException {
-    if (gitNewCommit == null) {
+    if (gitCommit == null) {
       return Collections.emptyMap();
     }
     final GitFile oldTree = previous == null ? emptyFile() : previous.getRoot();
@@ -93,10 +90,7 @@ public class GitRevision implements VcsRevision {
   }
 
   private GitFile getRoot() throws IOException, SVNException {
-    if (gitNewCommit == null) {
-      return emptyFile();
-    }
-    return new GitFile(repo, gitNewCommit, revision);
+    return new GitFile(repo, LayoutHelper.getTree(repo.getRepository(), cacheCommit), "", GitProperty.emptyArray, revision);
   }
 
   @NotNull
@@ -113,8 +107,8 @@ public class GitRevision implements VcsRevision {
       putProperty(props, SVNRevisionProperty.LOG, getLog());
       putProperty(props, SVNRevisionProperty.DATE, getDateString());
     }
-    if (gitNewCommit != null) {
-      props.put(SvnConstants.PROP_GIT, gitNewCommit.name());
+    if (gitCommit != null) {
+      props.put(SvnConstants.PROP_GIT, gitCommit.name());
     }
     return props;
   }
@@ -127,19 +121,19 @@ public class GitRevision implements VcsRevision {
 
   @Override
   public long getDate() {
-    return date;
+    return TimeUnit.SECONDS.toMillis(cacheCommit.getCommitTime());
   }
 
   @Nullable
   @Override
   public String getAuthor() {
-    return gitNewCommit == null ? null : gitNewCommit.getCommitterIdent().getName();
+    return gitCommit == null ? null : gitCommit.getCommitterIdent().getName();
   }
 
   @Nullable
   @Override
   public String getLog() {
-    return gitNewCommit == null ? null : gitNewCommit.getFullMessage().trim();
+    return gitCommit == null ? null : gitCommit.getFullMessage().trim();
   }
 
   @Nullable

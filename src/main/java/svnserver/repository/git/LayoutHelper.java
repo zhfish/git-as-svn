@@ -55,6 +55,13 @@ public class LayoutHelper {
   @NotNull
   public static Ref initRepository(@NotNull Repository repository) throws IOException {
     Ref ref = repository.getRef(REF);
+    if (ref != null) {
+      // todo: Remove after layout cache loading support
+      final RefUpdate refUpdate = repository.updateRef(REF);
+      refUpdate.setForceUpdate(true);
+      refUpdate.delete();
+      ref = null;
+    }
     if (ref == null) {
       final ObjectId revision = createFirstRevision(repository);
       final RefUpdate refUpdate = repository.updateRef(REF);
@@ -97,7 +104,8 @@ public class LayoutHelper {
     final TreeFormatter treeBuilder = new TreeFormatter();
     treeBuilder.append(ENTRY_COMMIT_YML, FileMode.REGULAR_FILE, CacheHelper.save(inserter, cacheRevision));
     treeBuilder.append(ENTRY_COMMIT_REF, commit);
-    treeBuilder.append("svn", FileMode.TREE, createSvnLayoutTree(inserter, cacheRevision.getBranches()));
+    //todo: treeBuilder.append(ENTRY_ROOT, FileMode.TREE, createSvnLayoutTree(inserter, cacheRevision.getBranches()));
+    treeBuilder.append(ENTRY_ROOT, FileMode.TREE, commit.getTree());
     final ObjectId rootTree = inserter.insert(treeBuilder);
 
     final CommitBuilder commitBuilder = new CommitBuilder();
@@ -130,6 +138,16 @@ public class LayoutHelper {
       }
       return null;
     }
+  }
+
+  @NotNull
+  public static GitTreeEntry getTree(@NotNull Repository repository, @NotNull RevCommit commit) throws IOException {
+    final ObjectReader reader = repository.newObjectReader();
+    final TreeWalk treeWalk = TreeWalk.forPath(reader, ENTRY_ROOT, commit.getTree());
+    if (treeWalk == null) {
+      throw new IllegalStateException("Can't find tree for commit: " + commit.getId().name());
+    }
+    return new GitTreeEntry(repository, treeWalk.getFileMode(0), treeWalk.getObjectId(0), "");
   }
 
   /**
