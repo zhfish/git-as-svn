@@ -36,7 +36,7 @@ public class GitRevision implements VcsRevision {
   @NotNull
   private final ObjectId cacheCommit;
   @Nullable
-  private final RevCommit gitOldCommit;
+  private final GitRevision previous;
   @Nullable
   private final RevCommit gitNewCommit;
 
@@ -49,14 +49,14 @@ public class GitRevision implements VcsRevision {
                      @NotNull ObjectId cacheCommit,
                      int revision,
                      @NotNull Map<String, VcsCopyFrom> renames,
-                     @Nullable RevCommit gitOldCommit,
+                     @Nullable GitRevision previous,
                      @Nullable RevCommit gitNewCommit,
                      int commitTimeSec) {
     this.repo = repo;
     this.cacheCommit = cacheCommit;
     this.revision = revision;
     this.renames = renames;
-    this.gitOldCommit = gitOldCommit;
+    this.previous = previous;
     this.gitNewCommit = gitNewCommit;
     this.date = TimeUnit.SECONDS.toMillis(commitTimeSec);
   }
@@ -82,14 +82,26 @@ public class GitRevision implements VcsRevision {
     if (gitNewCommit == null) {
       return Collections.emptyMap();
     }
-    final GitFile oldTree = gitOldCommit == null ? new GitFile(repo, null, "", GitProperty.emptyArray, revision - 1) : new GitFile(repo, gitOldCommit, revision - 1);
-    final GitFile newTree = new GitFile(repo, gitNewCommit, revision);
+    final GitFile oldTree = previous == null ? emptyFile() : previous.getRoot();
+    final GitFile newTree = getRoot();
 
     final Map<String, GitLogEntry> changes = new TreeMap<>();
     for (Map.Entry<String, GitLogPair> entry : ChangeHelper.collectChanges(oldTree, newTree, false).entrySet()) {
       changes.put(entry.getKey(), new GitLogEntry(entry.getValue(), renames));
     }
     return changes;
+  }
+
+  private GitFile getRoot() throws IOException, SVNException {
+    if (gitNewCommit == null) {
+      return emptyFile();
+    }
+    return new GitFile(repo, gitNewCommit, revision);
+  }
+
+  @NotNull
+  private GitFile emptyFile() throws IOException, SVNException {
+    return new GitFile(repo, null, "", GitProperty.emptyArray, revision);
   }
 
   @NotNull
@@ -133,10 +145,7 @@ public class GitRevision implements VcsRevision {
   @Nullable
   @Override
   public GitFile getFile(@NotNull String fullPath) throws IOException, SVNException {
-    if (gitNewCommit == null) {
-      return new GitFile(repo, null, "", GitProperty.emptyArray, revision);
-    }
-    GitFile result = new GitFile(repo, gitNewCommit, revision);
+    GitFile result = getRoot();
     for (String pathItem : fullPath.split("/")) {
       if (pathItem.isEmpty()) {
         continue;

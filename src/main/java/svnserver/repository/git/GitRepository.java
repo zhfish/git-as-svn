@@ -324,7 +324,7 @@ public class GitRepository implements VcsRepository {
     for (Map.Entry<String, String> entry : cacheRevision.getRenames().entrySet()) {
       copyFroms.put(entry.getKey(), new VcsCopyFrom(revisionId - 1, entry.getValue()));
     }
-    final RevCommit oldCommit = revisions.isEmpty() ? null : revisions.get(revisions.size() - 1).getGitNewCommit();
+    final GitRevision oldCommit = revisions.isEmpty() ? null : revisions.get(revisions.size() - 1);
     final RevCommit svnCommit = cacheRevision.getGitCommitId() != null ? revWalk.parseCommit(cacheRevision.getGitCommitId()) : null;
     for (Map.Entry<String, CacheChange> entry : cacheRevision.getFileChange().entrySet()) {
       lastUpdates.compute(entry.getKey(), (key, list) -> {
