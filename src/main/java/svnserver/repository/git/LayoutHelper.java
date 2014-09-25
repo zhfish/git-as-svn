@@ -55,13 +55,6 @@ public class LayoutHelper {
   @NotNull
   public static Ref initRepository(@NotNull Repository repository) throws IOException {
     Ref ref = repository.getRef(REF);
-    if (ref != null) {
-      // todo: Remove after layout cache loading support
-      final RefUpdate refUpdate = repository.updateRef(REF);
-      refUpdate.setForceUpdate(true);
-      refUpdate.delete();
-      ref = null;
-    }
     if (ref == null) {
       final ObjectId revision = createFirstRevision(repository);
       final RefUpdate refUpdate = repository.updateRef(REF);
@@ -73,6 +66,15 @@ public class LayoutHelper {
       }
     }
     return ref;
+  }
+
+  public static void resetCache(@NotNull Repository repository) throws IOException {
+    final Ref ref = repository.getRef(REF);
+    if (ref != null) {
+      final RefUpdate refUpdate = repository.updateRef(REF);
+      refUpdate.setForceUpdate(true);
+      refUpdate.delete();
+    }
   }
 
   /**

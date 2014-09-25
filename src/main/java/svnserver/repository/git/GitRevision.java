@@ -76,10 +76,10 @@ public class GitRevision implements VcsRevision {
   @NotNull
   @Override
   public Map<String, GitLogEntry> getChanges() throws IOException, SVNException {
-    if (gitCommit == null) {
+    if (previous == null) {
       return Collections.emptyMap();
     }
-    final GitFile oldTree = previous == null ? emptyFile() : previous.getRoot();
+    final GitFile oldTree = previous.getRoot();
     final GitFile newTree = getRoot();
 
     final Map<String, GitLogEntry> changes = new TreeMap<>();
@@ -91,11 +91,6 @@ public class GitRevision implements VcsRevision {
 
   private GitFile getRoot() throws IOException, SVNException {
     return new GitFile(repo, LayoutHelper.getTree(repo.getRepository(), cacheCommit), "", GitProperty.emptyArray, revision);
-  }
-
-  @NotNull
-  private GitFile emptyFile() throws IOException, SVNException {
-    return new GitFile(repo, null, "", GitProperty.emptyArray, revision);
   }
 
   @NotNull
