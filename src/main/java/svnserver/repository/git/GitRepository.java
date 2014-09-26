@@ -255,7 +255,9 @@ public class GitRepository implements VcsRepository {
         ObjectId cacheId = revisions.get(revisions.size() - 1).getCacheCommit();
         for (int i = newRevs.size() - 1; i >= 0; i--) {
           final RevCommit revCommit = newRevs.get(i);
-          final CacheRevision cacheRevision = createCache(revCommit.getParentCount() > 0 ? revWalk.parseCommit(revCommit.getParent(0)) : null, revCommit, Collections.emptyMap(), revisionId);
+          final Map<String, RevCommit> branches = new HashMap<>();
+          branches.put("", revCommit);
+          final CacheRevision cacheRevision = createCache(revCommit.getParentCount() > 0 ? revWalk.parseCommit(revCommit.getParent(0)) : null, revCommit, branches, revisionId);
           cacheId = LayoutHelper.createCacheCommit(inserter, cacheId, revCommit, cacheRevision);
           inserter.flush();
 

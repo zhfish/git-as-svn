@@ -106,8 +106,7 @@ public class LayoutHelper {
     final TreeFormatter treeBuilder = new TreeFormatter();
     treeBuilder.append(ENTRY_COMMIT_YML, FileMode.REGULAR_FILE, CacheHelper.save(inserter, cacheRevision));
     treeBuilder.append(ENTRY_COMMIT_REF, commit);
-    //todo: treeBuilder.append(ENTRY_ROOT, FileMode.TREE, createSvnLayoutTree(inserter, cacheRevision.getBranches()));
-    treeBuilder.append(ENTRY_ROOT, FileMode.TREE, commit.getTree());
+    treeBuilder.append(ENTRY_ROOT, FileMode.TREE, createSvnLayoutTree(inserter, cacheRevision.getBranches()));
     final ObjectId rootTree = inserter.insert(treeBuilder);
 
     final CommitBuilder commitBuilder = new CommitBuilder();
@@ -149,7 +148,14 @@ public class LayoutHelper {
     if (treeWalk == null) {
       throw new IllegalStateException("Can't find tree for commit: " + commit.getId().name());
     }
-    return new GitTreeEntry(repository, treeWalk.getFileMode(0), treeWalk.getObjectId(0), "");
+    final FileMode fileMode = treeWalk.getFileMode(0);
+    final ObjectId treeId;
+    if (fileMode.equals(FileMode.GITLINK)) {
+      treeId = new RevWalk(repository).parseCommit(treeWalk.getObjectId(0)).getTree();
+    } else {
+      treeId = treeWalk.getObjectId(0);
+    }
+    return new GitTreeEntry(repository, fileMode, treeId, "");
   }
 
   /**
@@ -267,7 +273,7 @@ public class LayoutHelper {
   private static ObjectId createFirstRevision(@NotNull Repository repository) throws IOException {
     // Generate UUID.
     final ObjectInserter inserter = repository.newObjectInserter();
-    ObjectId uuidId = inserter.insert(Constants.OBJ_BLOB, UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+    final ObjectId uuidId = inserter.insert(Constants.OBJ_BLOB, UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
     // Create svn empty tree.
     final ObjectId treeId = inserter.insert(new TreeFormatter());
     // Create commit tree.
@@ -287,13 +293,16 @@ public class LayoutHelper {
     return commitId;
   }
 
-  @Nullable
-  private static ObjectId createSvnLayoutTree(@NotNull ObjectInserter inserter, @NotNull Map<String, ObjectId> revBranches) throws IOException {
+  @NotNull
+  private static ObjectId createSvnLayoutTree(@NotNull ObjectInserter inserter, @NotNull Map<String, RevCommit> revBranches) throws IOException {
+    if (revBranches.size() == 1 && revBranches.containsKey("")) {
+      return revBranches.get("").getTree();
+    }
     final Deque<TreeFormatter> stack = new ArrayDeque<>();
     stack.add(new TreeFormatter());
     String dir = "";
     final ObjectChecker checker = new ObjectChecker();
-    for (Map.Entry<String, ObjectId> entry : new TreeMap<>(revBranches).entrySet()) {
+    for (Map.Entry<String, RevCommit> entry : new TreeMap<>(revBranches).entrySet()) {
       final String path = entry.getKey();
       // Save already added nodes.
       while (!path.startsWith(dir)) {
@@ -311,7 +320,7 @@ public class LayoutHelper {
       // Add commit to tree.
       {
         final int index = path.lastIndexOf('/', path.length() - 2) + 1;
-        stack.element().append(path.substring(index, path.length() - 1), FileMode.GITLINK, entry.getValue());
+        stack.element().append(path.substring(index, path.length() - 1), FileMode.TREE, entry.getValue().getTree());
       }
     }
     // Save already added nodes.
