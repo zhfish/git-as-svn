@@ -31,6 +31,7 @@ import svnserver.config.UserDBConfig;
 import svnserver.repository.VcsRepository;
 import svnserver.repository.git.GitPushMode;
 import svnserver.repository.git.GitRepository;
+import svnserver.repository.git.LayoutHelper;
 import svnserver.repository.locks.DumbLockManager;
 import svnserver.server.SvnServer;
 
@@ -90,6 +91,7 @@ public final class SvnTestServer implements AutoCloseable {
     } else {
       testBranch = srcBranch;
     }
+    LayoutHelper.resetCache(repository);
 
     final Config config = new Config();
     config.setPort(0);
