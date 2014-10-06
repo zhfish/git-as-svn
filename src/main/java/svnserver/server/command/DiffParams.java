@@ -10,6 +10,7 @@ package svnserver.server.command;
 import org.jetbrains.annotations.NotNull;
 import org.tmatesoft.svn.core.SVNException;
 import svnserver.repository.Depth;
+import svnserver.repository.SendCopyFrom;
 
 /**
  * Update between revisions.
@@ -28,13 +29,15 @@ import svnserver.repository.Depth;
  */
 public final class DiffParams extends DeltaParams {
 
-  public DiffParams(@NotNull int[] rev,
-                    @NotNull String target,
-                    boolean recurse,
-                    boolean ignoreAncestry,
-                    @NotNull String url,
-                    boolean textDeltas,
-                    @NotNull String depth) throws SVNException {
-    super(rev, target, url, textDeltas, Depth.parse(depth, recurse, Depth.Files), false, ignoreAncestry);
+  public DiffParams(
+      @NotNull int[] rev,
+      @NotNull String target,
+      boolean recurse,
+      boolean ignoreAncestry,
+      @NotNull String url,
+      boolean textDeltas,
+      @NotNull String depth
+  ) throws SVNException {
+    super(rev, target, url, textDeltas, Depth.parse(depth, recurse, Depth.Files), SendCopyFrom.Never, ignoreAncestry, true);
   }
 }

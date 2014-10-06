@@ -34,6 +34,14 @@ public interface VcsFile {
   @NotNull
   String getMd5() throws IOException, SVNException;
 
+  /**
+   * Get native repository content hash for cheap content modification check.
+   */
+  @NotNull
+  default String getContentHash() throws IOException, SVNException {
+    return getMd5();
+  }
+
   long getSize() throws IOException;
 
   @NotNull
@@ -52,4 +60,7 @@ public interface VcsFile {
 
   @NotNull
   VcsRevision getLastChange() throws IOException;
+
+  @Nullable
+  VcsCopyFrom getCopyFrom() throws IOException;
 }

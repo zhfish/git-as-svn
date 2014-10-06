@@ -17,10 +17,12 @@ import org.jetbrains.annotations.Nullable;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNProperty;
+import org.tmatesoft.svn.core.internal.wc.SVNFileUtil;
 import svnserver.StreamHelper;
 import svnserver.StringHelper;
 import svnserver.SvnConstants;
 import svnserver.TemporaryOutputStream;
+import svnserver.repository.VcsCopyFrom;
 import svnserver.repository.VcsFile;
 import svnserver.repository.git.prop.GitProperty;
 
@@ -105,18 +107,28 @@ public class GitFile implements VcsFile {
     return treeEntry == null ? null : treeEntry.getObjectId();
   }
 
+  public Map<String, String> getUpstreamProperties() {
+    final Map<String, String> result = new HashMap<>();
+    for (GitProperty prop : props) {
+      prop.apply(result);
+    }
+    return result;
+  }
+
   @NotNull
   @Override
   public Map<String, String> getProperties(boolean includeInternalProps) throws IOException {
-    final Map<String, String> props = new HashMap<>();
-    for (GitProperty prop : this.props) {
-      prop.apply(props);
-    }
+    final Map<String, String> props = getUpstreamProperties();
     final FileMode fileMode = getFileMode();
-    if (fileMode.equals(FileMode.EXECUTABLE_FILE)) {
-      props.put(SVNProperty.EXECUTABLE, "*");
-    } else if (fileMode.equals(FileMode.SYMLINK)) {
+    if (fileMode.equals(FileMode.SYMLINK)) {
       props.put(SVNProperty.SPECIAL, "*");
+    } else {
+      if (fileMode.equals(FileMode.EXECUTABLE_FILE)) {
+        props.put(SVNProperty.EXECUTABLE, "*");
+      }
+      if (fileMode.getObjectType() == Constants.OBJ_BLOB && repo.isObjectBinary(getObjectId())) {
+        props.put(SVNProperty.MIME_TYPE, SVNFileUtil.BINARY_MIME_TYPE);
+      }
     }
     if (includeInternalProps) {
       final GitRevision last = getLastChange();
@@ -143,16 +155,28 @@ public class GitFile implements VcsFile {
     return repo.getObjectMD5(treeEntry.getObjectId(), isSymlink() ? 'l' : 'f', this::openStream);
   }
 
+  @NotNull
+  @Override
+  public String getContentHash() throws IOException, SVNException {
+    if (treeEntry == null || isDirectory()) {
+      throw new IllegalStateException("Can't compare content from directory.");
+    }
+    return treeEntry.getObjectId().getObject().name() + (isSymlink() ? 'l' : 'f');
+  }
+
   @Override
   public long getSize() throws IOException {
-    final ObjectLoader loader = getObjectLoader();
-    if (loader == null) {
+    if (getFileMode().getObjectType() != Constants.OBJ_BLOB)
       return 0;
-    }
-    if (isSymlink()) {
+
+    final ObjectLoader loader = getObjectLoader();
+    if (loader == null)
+      return 0;
+
+    if (isSymlink())
       return SvnConstants.LINK_PREFIX.length() + loader.getSize();
-    }
-    return getFileMode().getObjectType() == Constants.OBJ_BLOB ? loader.getSize() : 0;
+
+    return loader.getSize();
   }
 
   @Override
@@ -247,6 +271,12 @@ public class GitFile implements VcsFile {
       throw new IllegalStateException("Internal error: can't find lastChange revision for file: " + getFileName() + "@" + revision);
     }
     return repo.sureRevisionInfo(lastChange);
+  }
+
+  @Nullable
+  @Override
+  public VcsCopyFrom getCopyFrom() throws IOException {
+    return getLastChange().getCopyFrom(getFullPath());
   }
 
   @Override
