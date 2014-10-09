@@ -36,7 +36,6 @@ import svnserver.repository.locks.DumbLockManager;
 import svnserver.server.SvnServer;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -180,21 +179,7 @@ public final class SvnTestServer implements AutoCloseable {
           .call();
     }
     repository.close();
-    deleteDirectory(tempDirectory);
-  }
-
-  private void deleteDirectory(@NotNull File file) throws IOException {
-    if (file.isDirectory()) {
-      final File[] files = file.listFiles();
-      if (files != null) {
-        for (File entry : files) {
-          deleteDirectory(entry);
-        }
-      }
-    }
-    if (!file.delete()) {
-      throw new FileNotFoundException("Failed to delete file: " + file);
-    }
+    TestHelper.deleteDirectory(tempDirectory);
   }
 
   private static File findGitPath() {
