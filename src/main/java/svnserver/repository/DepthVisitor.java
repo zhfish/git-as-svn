@@ -5,25 +5,26 @@
  * including this file, may be copied, modified, propagated, or distributed
  * except according to the terms contained in the LICENSE file.
  */
-package svnserver.config;
+package svnserver.repository;
 
 import org.jetbrains.annotations.NotNull;
-import org.mapdb.DB;
 import org.tmatesoft.svn.core.SVNException;
-import svnserver.repository.VcsRepository;
-
-import javax.xml.bind.annotation.XmlSeeAlso;
-import java.io.IOException;
 
 /**
- * Repository configuration.
+ * Visitor for Depth enumeration.
  *
  * @author a.navrotskiy
  */
-@XmlSeeAlso({
-    GitRepositoryConfig.class
-})
-public interface RepositoryConfig {
+public interface DepthVisitor<R> {
   @NotNull
-  VcsRepository create(@NotNull DB cacheDb) throws IOException, SVNException;
+  R visitEmpty() throws SVNException;
+
+  @NotNull
+  R visitFiles() throws SVNException;
+
+  @NotNull
+  R visitImmediates() throws SVNException;
+
+  @NotNull
+  R visitInfinity() throws SVNException;
 }

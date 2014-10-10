@@ -17,6 +17,7 @@ import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.IntList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.mapdb.DB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNErrorCode;
@@ -33,7 +34,7 @@ import svnserver.repository.git.cache.CacheRevision;
 import svnserver.repository.git.prop.GitProperty;
 import svnserver.repository.git.prop.GitPropertyFactory;
 import svnserver.repository.git.prop.PropertyMapping;
-import svnserver.repository.locks.LockManager;
+import svnserver.repository.locks.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,7 +59,7 @@ public class GitRepository implements VcsRepository {
   @NotNull
   private static final Logger log = LoggerFactory.getLogger(GitRepository.class);
   @NotNull
-  private final LockManager lockManager;
+  private final LockManagerFactory lockManagerFactory;
   @NotNull
   public static final byte[] emptyBytes = new byte[0];
   @NotNull
@@ -87,9 +88,11 @@ public class GitRepository implements VcsRepository {
   @NotNull
   private final String svnBranch;
   @NotNull
-  private final Map<String, String> md5Cache = new ConcurrentHashMap<>();
+  private final DB cacheDb;
   @NotNull
-  private final Map<String, Boolean> binaryCache = new ConcurrentHashMap<>();
+  private final Map<String, String> md5Cache;
+  @NotNull
+  private final Map<String, Boolean> binaryCache;
   @NotNull
   private final Map<ObjectId, GitProperty[]> directoryPropertyCache = new ConcurrentHashMap<>();
   @NotNull
@@ -101,11 +104,15 @@ public class GitRepository implements VcsRepository {
                        @NotNull GitPushMode pushMode,
                        @NotNull String branch,
                        boolean renameDetection,
-                       @NotNull LockManager lockManager) throws IOException, SVNException {
-    this.lockManager = lockManager;
+                       @NotNull LockManagerFactory lockManagerFactory,
+                       @NotNull DB cacheDb) throws IOException, SVNException {
+    this.cacheDb = cacheDb;
+    this.md5Cache = cacheDb.getHashMap("cache.md5");
+    this.binaryCache = cacheDb.getHashMap("cache.binary");
     this.repository = repository;
     this.pushMode = pushMode;
     this.renameDetection = renameDetection;
+    this.lockManagerFactory = lockManagerFactory;
     linkedRepositories = new ArrayList<>(linked);
 
     this.svnBranch = LayoutHelper.initRepository(repository).getName();
@@ -116,12 +123,6 @@ public class GitRepository implements VcsRepository {
     updateRevisions();
     this.uuid = UUID.nameUUIDFromBytes((getRepositoryId() + "\0" + gitBranch).getBytes(StandardCharsets.UTF_8)).toString();
     log.info("Repository ready (branch: {})", gitBranch);
-  }
-
-  @NotNull
-  @Override
-  public LockManager getLockManager() {
-    return lockManager;
   }
 
   @NotNull
@@ -314,6 +315,11 @@ public class GitRepository implements VcsRepository {
         break;
       }
     }
+    wrapLockWrite((lockManager) -> {
+      lockManager.validateLocks();
+      return Boolean.TRUE;
+    });
+    cacheDb.commit();
   }
 
   private void loadRevisionInfo(@NotNull RevCommit commit) throws IOException, SVNException {
@@ -576,8 +582,8 @@ public class GitRepository implements VcsRepository {
 
   @NotNull
   @Override
-  public VcsCommitBuilder createCommitBuilder() throws IOException, SVNException {
-    return new GitCommitBuilder(gitBranch);
+  public VcsCommitBuilder createCommitBuilder(@NotNull LockManagerWrite lockManager, @NotNull Map<String, String> locks) throws IOException, SVNException {
+    return new GitCommitBuilder(lockManager, locks, gitBranch);
   }
 
   @NotNull
@@ -637,6 +643,18 @@ public class GitRepository implements VcsRepository {
       }
     }
     return null;
+  }
+
+  @NotNull
+  @Override
+  public <T> T wrapLockRead(@NotNull LockWorker<T, LockManagerRead> work) throws SVNException, IOException {
+    return lockManagerFactory.wrapLockRead(this, work);
+  }
+
+  @NotNull
+  @Override
+  public <T> T wrapLockWrite(@NotNull LockWorker<T, LockManagerWrite> work) throws SVNException, IOException {
+    return lockManagerFactory.wrapLockWrite(this, work);
   }
 
   private static class ComputeBranchName implements BiFunction<RevCommit, CacheInfo, CacheInfo> {
@@ -720,11 +738,17 @@ public class GitRepository implements VcsRepository {
     @NotNull
     private final String branch;
     @NotNull
+    private final LockManagerWrite lockManager;
+    @NotNull
+    private final Map<String, String> locks;
+    @NotNull
     private final List<VcsConsumer<GitPropertyValidator>> validateActions = new ArrayList<>();
 
-    public GitCommitBuilder(@NotNull String branch) throws IOException, SVNException {
+    public GitCommitBuilder(@NotNull LockManagerWrite lockManager, @NotNull Map<String, String> locks, @NotNull String branch) throws IOException, SVNException {
       this.inserter = repository.newObjectInserter();
       this.branch = branch;
+      this.lockManager = lockManager;
+      this.locks = locks;
       this.revision = getLatestRevision();
       this.treeStack = new ArrayDeque<>();
       this.treeStack.push(new GitTreeUpdate("", getOriginalTree()));
@@ -739,12 +763,36 @@ public class GitRepository implements VcsRepository {
     }
 
     @Override
-    public void checkUpToDate(@NotNull String path, int rev) throws SVNException, IOException {
+    public void checkUpToDate(@NotNull String path, int rev, boolean checkLock) throws SVNException, IOException {
       final GitFile file = revision.getFile(path);
       if (file == null) {
         throw new SVNException(SVNErrorMessage.create(SVNErrorCode.ENTRY_NOT_FOUND, path));
       } else if (file.getLastChange().getId() > rev) {
         throw new SVNException(SVNErrorMessage.create(SVNErrorCode.WC_NOT_UP_TO_DATE, "Working copy is not up-to-date: " + path));
+      }
+      if (checkLock) {
+        checkLockFile(file);
+      }
+    }
+
+    private void checkLockFile(@NotNull GitFile file) throws SVNException {
+      final String fullPath = file.getFullPath();
+      if (file.isDirectory()) {
+        final Iterator<LockDesc> iter = lockManager.getLocks(fullPath, Depth.Infinity);
+        while (iter.hasNext()) {
+          checkLockDesc(iter.next());
+        }
+      } else {
+        checkLockDesc(lockManager.getLock(fullPath));
+      }
+    }
+
+    private void checkLockDesc(@Nullable LockDesc lockDesc) throws SVNException {
+      if (lockDesc != null) {
+        final String token = locks.get(lockDesc.getPath());
+        if (token == null || !lockDesc.getToken().equals(token)) {
+          throw new SVNException(SVNErrorMessage.create(SVNErrorCode.FS_BAD_LOCK_TOKEN, lockDesc.getPath()));
+        }
       }
     }
 
@@ -859,7 +907,6 @@ public class GitRepository implements VcsRepository {
           return null;
         }
         log.info("Commit is pushed");
-
         updateRevisions();
         return getRevision(commitId);
       }

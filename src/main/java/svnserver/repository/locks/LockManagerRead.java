@@ -8,7 +8,6 @@
 package svnserver.repository.locks;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.tmatesoft.svn.core.SVNException;
 import svnserver.repository.Depth;
 
@@ -17,21 +16,9 @@ import java.util.Iterator;
 /**
  * @author Marat Radchenko <marat@slonopotamus.org>
  */
-public interface LockManager {
-
-  @NotNull
-  LockDesc[] lock(@NotNull String username, @Nullable String comment, boolean stealLock, @NotNull LockTarget[] targets) throws SVNException;
-
-  @NotNull
-  LockDesc lock(@NotNull String username, @Nullable String comment, boolean stealLock, @NotNull LockTarget target) throws SVNException;
-
-  @Nullable
-  LockDesc getLock(@NotNull String path) throws SVNException;
-
+public interface LockManagerRead {
   @NotNull
   Iterator<LockDesc> getLocks(@NotNull String path, @NotNull Depth depth) throws SVNException;
 
-  void unlock(boolean breakLock, @NotNull UnlockTarget target) throws SVNException;
-
-  void unlock(boolean breakLock, @NotNull UnlockTarget[] targets) throws SVNException;
+  LockDesc getLock(@NotNull String path);
 }

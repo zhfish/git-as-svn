@@ -9,9 +9,12 @@ package svnserver.repository;
 
 import org.jetbrains.annotations.NotNull;
 import org.tmatesoft.svn.core.SVNException;
-import svnserver.repository.locks.LockManager;
+import svnserver.repository.locks.LockManagerRead;
+import svnserver.repository.locks.LockManagerWrite;
+import svnserver.repository.locks.LockWorker;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Repository interface.
@@ -26,9 +29,6 @@ public interface VcsRepository {
    */
   @NotNull
   String getUuid();
-
-  @NotNull
-  LockManager getLockManager();
 
   /**
    * Get latest revision number.
@@ -88,7 +88,7 @@ public interface VcsRepository {
    * @throws IOException
    */
   @NotNull
-  VcsCommitBuilder createCommitBuilder() throws IOException, SVNException;
+  VcsCommitBuilder createCommitBuilder(@NotNull LockManagerWrite lockManager, @NotNull Map<String, String> locks) throws IOException, SVNException;
 
   /**
    * Get last file update in target revision.
@@ -99,4 +99,17 @@ public interface VcsRepository {
    * If file is changed in target revision - return target revision.
    */
   int getLastChange(@NotNull String nodePath, int beforeRevision);
+
+  /**
+   * Run some work with blocking lock modification.
+   */
+  @NotNull
+  <T> T wrapLockRead(@NotNull LockWorker<T, LockManagerRead> work) throws SVNException, IOException;
+
+  /**
+   * Run some work with blocking lock modification.
+   */
+  @NotNull
+  <T> T wrapLockWrite(@NotNull LockWorker<T, LockManagerWrite> work) throws SVNException, IOException;
+
 }

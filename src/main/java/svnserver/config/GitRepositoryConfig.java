@@ -10,6 +10,7 @@ package svnserver.config;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
 import org.eclipse.jgit.lib.Repository;
 import org.jetbrains.annotations.NotNull;
+import org.mapdb.DB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNException;
@@ -18,7 +19,7 @@ import svnserver.repository.git.GitCreateMode;
 import svnserver.repository.git.GitPushMode;
 import svnserver.repository.git.GitRepository;
 import svnserver.repository.git.LayoutHelper;
-import svnserver.repository.locks.LockManagerType;
+import svnserver.repository.locks.PersistentLockFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -47,8 +48,6 @@ public final class GitRepositoryConfig implements RepositoryConfig {
 
   private boolean renameDetection = true;
   private boolean resetCache = false;
-  @NotNull
-  private LockManagerType lockManager = LockManagerType.DumbReadOnly;
 
   @NotNull
   public String getBranch() {
@@ -103,15 +102,6 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   }
 
   @NotNull
-  public LockManagerType getLockManager() {
-    return lockManager;
-  }
-
-  public void setLockManager(@NotNull LockManagerType lockManager) {
-    this.lockManager = lockManager;
-  }
-
-  @NotNull
   public GitCreateMode getCreateMode() {
     return createMode;
   }
@@ -148,12 +138,12 @@ public final class GitRepositoryConfig implements RepositoryConfig {
 
   @NotNull
   @Override
-  public VcsRepository create() throws IOException, SVNException {
+  public VcsRepository create(@NotNull DB cacheDb) throws IOException, SVNException {
     final Repository repo = createRepository();
     if (resetCache) {
       log.warn("Clear repository cache");
       LayoutHelper.resetCache(repo);
     }
-    return new GitRepository(repo, createLinkedRepositories(), getPushMode(), getBranch(), isRenameDetection(), lockManager.create());
+    return new GitRepository(repo, createLinkedRepositories(), getPushMode(), getBranch(), isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
   }
 }

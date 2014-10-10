@@ -5,30 +5,17 @@
  * including this file, may be copied, modified, propagated, or distributed
  * except according to the terms contained in the LICENSE file.
  */
-package svnserver.repository.locks;
+package svnserver.config;
 
 import org.jetbrains.annotations.NotNull;
+import org.mapdb.DB;
 
 /**
- * @author Marat Radchenko <marat@slonopotamus.org>
+ * Cache configuration.
+ *
+ * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-public enum LockManagerType {
-  DumbReadOnly {
-    @NotNull
-    @Override
-    public LockManager create() {
-      return new DumbLockManager(true);
-    }
-  },
-
-  DumbReadWrite {
-    @NotNull
-    @Override
-    public LockManager create() {
-      return new DumbLockManager(false);
-    }
-  };
-
+public interface CacheConfig {
   @NotNull
-  public abstract LockManager create();
+  DB createCache();
 }

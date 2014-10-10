@@ -5,25 +5,20 @@
  * including this file, may be copied, modified, propagated, or distributed
  * except according to the terms contained in the LICENSE file.
  */
-package svnserver.config;
+package svnserver.repository.locks;
 
 import org.jetbrains.annotations.NotNull;
-import org.mapdb.DB;
 import org.tmatesoft.svn.core.SVNException;
-import svnserver.repository.VcsRepository;
 
-import javax.xml.bind.annotation.XmlSeeAlso;
 import java.io.IOException;
 
 /**
- * Repository configuration.
+ * Worker for execute some work with lock information.
  *
- * @author a.navrotskiy
+ * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-@XmlSeeAlso({
-    GitRepositoryConfig.class
-})
-public interface RepositoryConfig {
+@FunctionalInterface
+public interface LockWorker<T, M extends LockManagerRead> {
   @NotNull
-  VcsRepository create(@NotNull DB cacheDb) throws IOException, SVNException;
+  T exec(@NotNull M lockManager) throws SVNException, IOException;
 }
