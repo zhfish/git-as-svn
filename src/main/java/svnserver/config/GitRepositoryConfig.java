@@ -142,8 +142,8 @@ public final class GitRepositoryConfig implements RepositoryConfig {
     final Repository repo = createRepository();
     if (resetCache) {
       log.warn("Clear repository cache");
-      LayoutHelper.resetCache(repo);
+      LayoutHelper.resetCache(repo, branch);
     }
-    return new GitRepository(repo, createLinkedRepositories(), getPushMode(), getBranch(), isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
+    return new GitRepository(repo, createLinkedRepositories(), getPushMode(), branch, isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
   }
 }

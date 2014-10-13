@@ -68,20 +68,22 @@ public final class UnlockManyCmd extends BaseCmd<UnlockManyCmd.Params> {
       final String lockToken = pathToken.lockToken.length == 0 ? null : pathToken.lockToken[0];
       targets[i] = new UnlockTarget(context.getRepositoryPath(path), lockToken);
     }
-    context.getRepository().wrapLockWrite((lockManager) -> {
-      lockManager.unlock(context, args.breakLock, targets);
-      return Boolean.TRUE;
-    });
-
-    for (PathToken path : args.paths)
-      writer
-          .listBegin()
-          .word("success")
-          .listBegin()
-          .string(path.path)
-          .listEnd()
-          .listEnd();
-
+    try {
+      context.getRepository().wrapLockWrite((lockManager) -> {
+        lockManager.unlock(context, args.breakLock, targets);
+        return Boolean.TRUE;
+      });
+      for (PathToken path : args.paths)
+        writer
+            .listBegin()
+            .word("success")
+            .listBegin()
+            .string(path.path)
+            .listEnd()
+            .listEnd();
+    } catch (SVNException e) {
+      sendError(writer, e.getErrorMessage());
+    }
     writer.word("done");
     writer
         .listBegin()
