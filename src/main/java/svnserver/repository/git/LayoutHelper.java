@@ -40,9 +40,7 @@ public class LayoutHelper {
       new RefMappingPrefix(Constants.R_TAGS, "tags/")
   );
   @NotNull
-  private static final String OLD_CACHE_REF = "refs/git-as-svn/v0";
-  @NotNull
-  private static final String PREFIX_REF = "refs/git-as-svn/v1/";
+  private static final String SVN_REF = "refs/git-as-svn/v2";
   @NotNull
   private static final String ENTRY_COMMIT_YML = "commit.yml";
   @NotNull
@@ -55,39 +53,25 @@ public class LayoutHelper {
   private static final String PREFIX_ANONIMOUS = "unnamed/";
 
   @NotNull
-  public static Ref initRepository(@NotNull Repository repository, @NotNull String branch) throws IOException {
-    Ref ref = repository.getRef(PREFIX_REF + branch);
-    if (ref == null) {
-      Ref old = repository.getRef(OLD_CACHE_REF);
-      if (old != null) {
-        final RefUpdate refUpdate = repository.updateRef(PREFIX_REF + branch);
-        refUpdate.setNewObjectId(old.getObjectId());
-        refUpdate.update();
-      }
-    }
+  public static Ref initRepository(@NotNull Repository repository) throws IOException {
+    Ref ref = repository.getRef(SVN_REF);
     if (ref == null) {
       final ObjectId revision = createFirstRevision(repository);
-      final RefUpdate refUpdate = repository.updateRef(PREFIX_REF + branch);
+      final RefUpdate refUpdate = repository.updateRef(SVN_REF);
       refUpdate.setNewObjectId(revision);
       refUpdate.update();
-      ref = repository.getRef(PREFIX_REF + branch);
+      ref = repository.getRef(SVN_REF);
       if (ref == null) {
         throw new IOException("Can't initialize repository.");
       }
     }
-    Ref old = repository.getRef(OLD_CACHE_REF);
-    if (old != null) {
-      final RefUpdate refUpdate = repository.updateRef(OLD_CACHE_REF);
-      refUpdate.setForceUpdate(true);
-      refUpdate.delete();
-    }
     return ref;
   }
 
-  public static void resetCache(@NotNull Repository repository, @NotNull String branch) throws IOException {
-    final Ref ref = repository.getRef(PREFIX_REF + branch);
+  public static void resetCache(@NotNull Repository repository) throws IOException {
+    final Ref ref = repository.getRef(SVN_REF);
     if (ref != null) {
-      final RefUpdate refUpdate = repository.updateRef(PREFIX_REF + branch);
+      final RefUpdate refUpdate = repository.updateRef(SVN_REF);
       refUpdate.setForceUpdate(true);
       refUpdate.delete();
     }

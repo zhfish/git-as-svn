@@ -92,7 +92,7 @@ public final class SvnTestServer implements AutoCloseable {
     } else {
       testBranch = srcBranch;
     }
-    LayoutHelper.resetCache(repository, srcBranch);
+    LayoutHelper.resetCache(repository);
 
     final Config config = new Config(BIND_HOST, 0);
     config.setCacheConfig(new MemoryCacheConfig());

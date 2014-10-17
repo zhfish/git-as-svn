@@ -39,6 +39,7 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   @NotNull
   private static final Logger log = LoggerFactory.getLogger(GitRepositoryConfig.class);
   @NotNull
+  @Deprecated
   private String branch = "master";
   @NotNull
   private String path = ".git";
@@ -84,7 +85,7 @@ public final class GitRepositoryConfig implements RepositoryConfig {
     final Repository repo = createRepository(basePath);
     if (resetCache) {
       log.warn("Clear repository cache");
-      LayoutHelper.resetCache(repo, branch);
+      LayoutHelper.resetCache(repo);
     }
     return new GitRepository(repo, createLinkedRepositories(), pushMode, branch, renameDetection, new PersistentLockFactory(cacheDb), cacheDb);
   }
