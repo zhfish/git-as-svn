@@ -16,6 +16,20 @@ import java.util.Locale;
  * @author Marat Radchenko <marat@slonopotamus.org>
  */
 public enum Depth {
+  Unknown {
+    @NotNull
+    @Override
+    public <R> R visit(@NotNull DepthVisitor<R> visitor) throws SVNException {
+      return visitor.visitUnknown();
+    }
+
+    @NotNull
+    @Override
+    public Action determineAction(@NotNull Depth requestedDepth, boolean directory) {
+      return Action.Skip;
+    }
+  },
+
   Empty {
     @NotNull
     @Override
@@ -89,7 +103,7 @@ public enum Depth {
       if (depth.value.equals(value))
         return depth;
 
-    return Infinity;
+    return Unknown;
   }
 
   @NotNull
@@ -107,9 +121,17 @@ public enum Depth {
   public abstract Action determineAction(@NotNull Depth requestedDepth, boolean directory);
 
   public enum Action {
+    // Ignore this entry (it's either below the requested depth, or
+    // if the requested depth is svn_depth_unknown, below the working
+    // copy depth)
     Skip,
+    // Handle the entry as if it were a newly added repository path
+    // (the client is upgrading to a deeper wc and doesn't currently
+    // have this entry, but it should be there after the upgrade, so we
+    // need to send the whole thing, not just deltas)
     Upgrade,
-    Normal
+    // Handle this entry normally
+    Normal,
   }
 
   @NotNull

@@ -5,25 +5,16 @@
  * including this file, may be copied, modified, propagated, or distributed
  * except according to the terms contained in the LICENSE file.
  */
-package svnserver.config;
+package svnserver.tester;
 
 import org.jetbrains.annotations.NotNull;
-import org.mapdb.DB;
-import org.mapdb.DBMaker;
-import svnserver.config.serializer.ConfigType;
-
-import java.io.File;
 
 /**
- * In-memory cache config.
+ * SvnTester factory.
  *
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-@ConfigType("memoryCache")
-public class MemoryCacheConfig implements CacheConfig {
+public interface SvnTesterFactory {
   @NotNull
-  @Override
-  public DB createCache(@NotNull File basePath) {
-    return DBMaker.newMemoryDB().make();
-  }
+  SvnTester create() throws Exception;
 }

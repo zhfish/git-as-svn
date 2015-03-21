@@ -104,9 +104,11 @@ public class LayoutHelper {
 
   public static ObjectId createCacheCommit(@NotNull ObjectInserter inserter, @NotNull ObjectId parent, @NotNull RevCommit commit, @NotNull CacheRevision cacheRevision) throws IOException {
     final TreeFormatter treeBuilder = new TreeFormatter();
-    treeBuilder.append(ENTRY_COMMIT_YML, FileMode.REGULAR_FILE, CacheHelper.save(inserter, cacheRevision));
     treeBuilder.append(ENTRY_COMMIT_REF, commit);
+    treeBuilder.append(ENTRY_COMMIT_YML, FileMode.REGULAR_FILE, CacheHelper.save(inserter, cacheRevision));
     treeBuilder.append(ENTRY_ROOT, FileMode.TREE, createSvnLayoutTree(inserter, cacheRevision.getBranches()));
+
+    new ObjectChecker().checkTree(treeBuilder.toByteArray());
     final ObjectId rootTree = inserter.insert(treeBuilder);
 
     final CommitBuilder commitBuilder = new CommitBuilder();

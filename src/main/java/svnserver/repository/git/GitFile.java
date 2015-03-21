@@ -7,10 +7,7 @@
  */
 package svnserver.repository.git;
 
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.ObjectId;
-import org.eclipse.jgit.lib.ObjectLoader;
+import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -115,7 +112,7 @@ public class GitFile implements VcsFile {
 
   @NotNull
   @Override
-  public Map<String, String> getProperties(boolean includeInternalProps) throws IOException {
+  public Map<String, String> getProperties() throws IOException {
     final Map<String, String> props = getUpstreamProperties();
     final FileMode fileMode = getFileMode();
     if (fileMode.equals(FileMode.SYMLINK)) {
@@ -128,13 +125,18 @@ public class GitFile implements VcsFile {
         props.put(SVNProperty.MIME_TYPE, SVNFileUtil.BINARY_MIME_TYPE);
       }
     }
-    if (includeInternalProps) {
-      final GitRevision last = getLastChange();
-      props.put(SVNProperty.UUID, repo.getUuid());
-      props.put(SVNProperty.COMMITTED_REVISION, String.valueOf(last.getId()));
-      putProperty(props, SVNProperty.COMMITTED_DATE, last.getDateString());
-      putProperty(props, SVNProperty.LAST_AUTHOR, last.getAuthor());
-    }
+    return props;
+  }
+
+  @NotNull
+  @Override
+  public Map<String, String> getRevProperties() throws IOException {
+    final Map<String, String> props = new HashMap<>();
+    final GitRevision last = getLastChange();
+    props.put(SVNProperty.UUID, repo.getUuid());
+    props.put(SVNProperty.COMMITTED_REVISION, String.valueOf(last.getId()));
+    putProperty(props, SVNProperty.COMMITTED_DATE, last.getDateString());
+    putProperty(props, SVNProperty.LAST_AUTHOR, last.getAuthor());
     return props;
   }
 
@@ -163,18 +165,18 @@ public class GitFile implements VcsFile {
   }
 
   @Override
-  public long getSize() throws IOException {
+  public long getSize() throws IOException, SVNException {
     if (getFileMode().getObjectType() != Constants.OBJ_BLOB)
-      return 0;
+      return 0L;
 
-    final ObjectLoader loader = getObjectLoader();
-    if (loader == null)
-      return 0;
+    if (treeEntry == null) {
+      throw new IllegalStateException("Can't get size without object.");
+    }
 
-    if (isSymlink())
-      return SvnConstants.LINK_PREFIX.length() + loader.getSize();
-
-    return loader.getSize();
+    final GitObject<ObjectId> objectId = treeEntry.getObjectId();
+    ObjectReader reader = objectId.getRepo().newObjectReader();
+    long objectSize = reader.getObjectSize(objectId.getObject(), treeEntry.getFileMode().getObjectType());
+    return objectSize + (isSymlink() ? 0 : SvnConstants.LINK_PREFIX.length());
   }
 
   @Override

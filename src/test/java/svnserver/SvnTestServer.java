@@ -33,6 +33,7 @@ import svnserver.repository.git.LayoutHelper;
 import svnserver.repository.locks.PersistentLockFactory;
 import svnserver.repository.mapping.RepositoryListMapping;
 import svnserver.server.SvnServer;
+import svnserver.tester.SvnTester;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +47,7 @@ import java.util.UUID;
  *
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-public final class SvnTestServer implements AutoCloseable {
+public final class SvnTestServer implements SvnTester {
   @NotNull
   private static final Logger log = LoggerFactory.getLogger(SvnTestServer.class);
   @NotNull
@@ -72,6 +73,9 @@ public final class SvnTestServer implements AutoCloseable {
   private final String prefix;
   @NotNull
   private final SvnServer server;
+  @NotNull
+  private final List<SvnOperationFactory> svnFactories = new ArrayList<>();
+
   private final boolean safeBranch;
 
   private SvnTestServer(@NotNull Repository repository, @Nullable String branch, @NotNull String prefix, boolean safeBranch, @Nullable UserDBConfig userDBConfig) throws Exception {
@@ -147,9 +151,11 @@ public final class SvnTestServer implements AutoCloseable {
 
   @NotNull
   public static SvnTestServer createMasterRepository() throws Exception {
-    return new SvnTestServer(new FileRepository(findGitPath()), null, "/master", true, null);
+    return new SvnTestServer(new FileRepository(TestHelper.findGitPath()), null, "/master", true, null);
   }
 
+  @Override
+  @NotNull
   public SVNURL getUrl() throws SVNException {
     return SVNURL.create("svn", null, BIND_HOST, server.getPort(), prefix, true);
   }
@@ -178,23 +184,12 @@ public final class SvnTestServer implements AutoCloseable {
           .setForce(true)
           .call();
     }
+    for (SvnOperationFactory factory : svnFactories) {
+      factory.dispose();
+    }
+    svnFactories.clear();
     repository.close();
     TestHelper.deleteDirectory(tempDirectory);
-  }
-
-  private static File findGitPath() {
-    final File root = new File(".").getAbsoluteFile();
-    File path = root;
-    while (true) {
-      final File repo = new File(path, ".git");
-      if (repo.exists()) {
-        return repo;
-      }
-      path = path.getParentFile();
-      if (path == null) {
-        throw new IllegalStateException("Repository not found from directiry: " + root.getAbsolutePath());
-      }
-    }
   }
 
   @NotNull
@@ -207,18 +202,14 @@ public final class SvnTestServer implements AutoCloseable {
     final SvnOperationFactory factory = new SvnOperationFactory();
     factory.setOptions(new DefaultSVNOptions(getTempDirectory(), true));
     factory.setAuthenticationManager(new BasicAuthenticationManager(userName, password));
+    svnFactories.add(factory);
     return factory;
   }
 
   @NotNull
   public SVNRepository openSvnRepository() throws SVNException {
-    return openSvnRepository(USER_NAME, PASSWORD);
-  }
-
-  @NotNull
-  public SVNRepository openSvnRepository(@NotNull String userName, @NotNull String password) throws SVNException {
     final SVNRepository repo = SVNRepositoryFactory.create(getUrl());
-    repo.setAuthenticationManager(new BasicAuthenticationManager(userName, password));
+    repo.setAuthenticationManager(new BasicAuthenticationManager(USER_NAME, PASSWORD));
     return repo;
   }
 
