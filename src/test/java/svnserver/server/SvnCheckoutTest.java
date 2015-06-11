@@ -106,7 +106,7 @@ public class SvnCheckoutTest {
       for (long revision : revisions.subList(1, revisions.size())) {
         final SvnLog svnLog = factory.createLog();
         svnLog.setSingleTarget(SvnTarget.fromURL(server.getUrl()));
-        svnLog.setRevisionRanges(Arrays.asList(SvnRevisionRange.create(SVNRevision.create(revision - 1), SVNRevision.create(revision))));
+        svnLog.setRevisionRanges(Collections.singletonList(SvnRevisionRange.create(SVNRevision.create(revision - 1), SVNRevision.create(revision))));
         svnLog.setDiscoverChangedPaths(true);
         final SVNLogEntry logEntry = svnLog.run();
         log.info("Update to revision #{}: {}", revision, logEntry.getMessage());

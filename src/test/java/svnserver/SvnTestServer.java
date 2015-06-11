@@ -199,7 +199,7 @@ public final class SvnTestServer implements SvnTester {
   public SvnOperationFactory createOperationFactory(@NotNull String userName, @NotNull String password) {
     final SvnOperationFactory factory = new SvnOperationFactory();
     factory.setOptions(new DefaultSVNOptions(getTempDirectory(), true));
-    factory.setAuthenticationManager(new BasicAuthenticationManager(userName, password));
+    factory.setAuthenticationManager(BasicAuthenticationManager.newInstance(userName, password.toCharArray()));
     svnFactories.add(factory);
     return factory;
   }
@@ -207,7 +207,7 @@ public final class SvnTestServer implements SvnTester {
   @NotNull
   public SVNRepository openSvnRepository() throws SVNException {
     final SVNRepository repo = SVNRepositoryFactory.create(getUrl());
-    repo.setAuthenticationManager(new BasicAuthenticationManager(USER_NAME, PASSWORD));
+    repo.setAuthenticationManager(BasicAuthenticationManager.newInstance(USER_NAME, PASSWORD.toCharArray()));
     return repo;
   }
 

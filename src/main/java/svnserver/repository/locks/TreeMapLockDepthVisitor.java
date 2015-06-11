@@ -13,7 +13,10 @@ import org.tmatesoft.svn.core.SVNException;
 import svnserver.StringHelper;
 import svnserver.repository.DepthVisitor;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.SortedMap;
 
 /**
  * Depth visitor for lock iteration.
@@ -36,7 +39,7 @@ public class TreeMapLockDepthVisitor implements DepthVisitor<Iterator<LockDesc>>
   @Override
   public Iterator<LockDesc> visitEmpty() throws SVNException {
     final LockDesc desc = locks.get(pathKey);
-    return desc == null ? Collections.emptyIterator() : Arrays.asList(desc).iterator();
+    return desc == null ? Collections.emptyIterator() : Collections.singletonList(desc).iterator();
   }
 
   @NotNull

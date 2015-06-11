@@ -19,5 +19,5 @@ import java.util.Collection;
 public interface UserDB {
 
   @NotNull
-  public Collection<Authenticator> authenticators();
+  Collection<Authenticator> authenticators();
 }

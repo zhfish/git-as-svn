@@ -11,7 +11,6 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.RenameDetector;
 import org.eclipse.jgit.lib.*;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
@@ -46,7 +45,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 
 /**
  * Implementation for Git repository.
@@ -197,23 +195,6 @@ public class GitRepository implements VcsRepository {
     }
   }
 
-  private static class CacheInfo {
-    private final int id;
-    @NotNull
-    private RevCommit commit;
-    @NotNull
-    private List<CacheInfo> childs = new ArrayList<>();
-    @NotNull
-    private List<CacheInfo> parents = new ArrayList<>();
-    @Nullable
-    private String svnBranch;
-
-    private CacheInfo(int id, @NotNull RevCommit commit) {
-      this.id = id;
-      this.commit = commit;
-    }
-  }
-
   /**
    * Create cache for new revisions.
    *
@@ -320,10 +301,6 @@ public class GitRepository implements VcsRepository {
       return Boolean.TRUE;
     });
     cacheDb.commit();
-  }
-
-  private boolean isTreeEmpty(RevTree tree) throws IOException {
-    return new CanonicalTreeParser(GitRepository.emptyBytes, repository.newObjectReader(), tree).eof();
   }
 
   private void loadRevisionInfo(@NotNull RevCommit commit) throws IOException, SVNException {
@@ -661,24 +638,6 @@ public class GitRepository implements VcsRepository {
     return lockManagerFactory.wrapLockWrite(this, work);
   }
 
-  private static class ComputeBranchName implements BiFunction<RevCommit, CacheInfo, CacheInfo> {
-    @NotNull
-    private final String svnBranch;
-
-    public ComputeBranchName(@NotNull String svnBranch) {
-      this.svnBranch = svnBranch;
-    }
-
-    @NotNull
-    @Override
-    public CacheInfo apply(@NotNull RevCommit revCommit, @NotNull CacheInfo old) {
-      if (old.svnBranch == null || LayoutHelper.compareBranches(old.svnBranch, svnBranch) > 0) {
-        old.svnBranch = svnBranch;
-      }
-      return old;
-    }
-  }
-
   private class GitPropertyValidator {
     @NotNull
     private final Deque<GitFile> treeStack;
@@ -717,15 +676,12 @@ public class GitRepository implements VcsRepository {
           for (Map.Entry<String, String> entry : properties.entrySet()) {
             delta.append("  ").append(entry.getKey()).append(" = \"").append(entry.getValue()).append("\"\n");
           }
-          propertyMismatch.compute(delta.toString(), new BiFunction<String, Set<String>, Set<String>>() {
-            @Override
-            public Set<String> apply(@NotNull String key, @Nullable Set<String> value) {
-              if (value == null) {
-                value = new TreeSet<>();
-              }
-              value.add(node.getFullPath());
-              return value;
+          propertyMismatch.compute(delta.toString(), (key, value) -> {
+            if (value == null) {
+              value = new TreeSet<>();
             }
+            value.add(node.getFullPath());
+            return value;
           });
           errorCount++;
         }
