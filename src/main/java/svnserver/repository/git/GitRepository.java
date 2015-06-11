@@ -17,6 +17,8 @@ import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.IntList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.SimpleDirectedGraph;
 import org.mapdb.DB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,6 +141,8 @@ public class GitRepository implements VcsRepository {
   public boolean loadRevisions() throws IOException, SVNException {
     // Fast check.
     lock.readLock().lock();
+    SimpleDirectedGraph<ObjectId, DefaultEdge> graph = new SimpleDirectedGraph<>(DefaultEdge.class);
+    LayoutHelper.loadRevisionGraph(repository, graph);
     try {
       final int lastRevision = revisions.size() - 1;
       final ObjectId lastCommitId;

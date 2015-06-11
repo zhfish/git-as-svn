@@ -16,6 +16,8 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jgrapht.DirectedGraph;
+import org.jgrapht.graph.DefaultEdge;
 import svnserver.repository.git.cache.CacheHelper;
 import svnserver.repository.git.cache.CacheRevision;
 import svnserver.repository.git.layout.RefMappingDirect;
@@ -107,6 +109,32 @@ public class LayoutHelper {
       }
     }
     return result;
+  }
+
+  public static void loadRevisionGraph(@NotNull Repository repository, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph) throws IOException {
+    final Deque<ObjectId> queue = new ArrayDeque<>();
+    RevWalk revWalk = new RevWalk(repository);
+    for (RevCommit commit : getBranches(repository).values()) {
+      final ObjectId commitId = commit.getId();
+      if (graph.addVertex(commitId)) {
+        queue.add(commitId);
+      }
+    }
+    while (true) {
+      final ObjectId id = queue.pollLast();
+      if (id == null) {
+        break;
+      }
+      final RevCommit commit = revWalk.parseCommit(id);
+      graph.addVertex(commit);
+      for (RevCommit parent : commit.getParents()) {
+        if (graph.addVertex(parent.getId())) {
+          queue.add(parent);
+        }
+        graph.addEdge(commit.getId(), parent.getId());
+      }
+    }
+
   }
 
   public static ObjectId createCacheCommit(@NotNull ObjectInserter inserter, @NotNull ObjectId parent, @NotNull RevCommit commit, @NotNull CacheRevision cacheRevision) throws IOException {
