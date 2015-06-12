@@ -14,10 +14,12 @@ import org.eclipse.jgit.revwalk.RevObject;
 import org.eclipse.jgit.revwalk.RevTag;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.SimpleDirectedGraph;
 import svnserver.repository.git.cache.CacheHelper;
 import svnserver.repository.git.cache.CacheRevision;
 import svnserver.repository.git.layout.RefMappingDirect;
@@ -28,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * Helper for creating svn layout in git repository.
@@ -111,13 +114,27 @@ public class LayoutHelper {
     return result;
   }
 
-  public static void loadRevisionGraph(@NotNull Repository repository, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph) throws IOException {
+  /**
+   * Load all new revision from repository and update repository graph.
+   *
+   * @param repository   Git repository.
+   * @param graph        Revision graph.
+   * @param newRevisions Collections with added revision.
+   * @param <T>          Revisions type.
+   * @return Return newRevisions.
+   * @throws IOException
+   * @apiNote Child revisions always added to newRevisions collection before parent revision.
+   */
+  @Contract("_, _, null -> null; _, _, !null -> !null")
+  public static <T extends Collection<ObjectId>> T loadRevisionGraph(@NotNull Repository repository, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph, @Nullable T newRevisions) throws IOException {
     final Deque<ObjectId> queue = new ArrayDeque<>();
+    final DirectedGraph<ObjectId, DefaultEdge> added = new SimpleDirectedGraph<ObjectId, DefaultEdge>(DefaultEdge.class);
     RevWalk revWalk = new RevWalk(repository);
     for (RevCommit commit : getBranches(repository).values()) {
       final ObjectId commitId = commit.getId();
       if (graph.addVertex(commitId)) {
         queue.add(commitId);
+        added.addVertex(commitId);
       }
     }
     while (true) {
@@ -128,13 +145,52 @@ public class LayoutHelper {
       final RevCommit commit = revWalk.parseCommit(id);
       graph.addVertex(commit);
       for (RevCommit parent : commit.getParents()) {
-        if (graph.addVertex(parent.getId())) {
+        final ObjectId parentId = parent.getId();
+        if (graph.addVertex(parentId)) {
+          added.addVertex(parentId);
           queue.add(parent);
         }
-        graph.addEdge(commit.getId(), parent.getId());
+        if (added.containsVertex(parentId)) {
+          added.addEdge(parentId, id);
+        }
+        graph.addEdge(parentId, id);
       }
     }
+    if (newRevisions != null) {
+      // Create new revisions list in right order.
+      for (ObjectId id : getBranches(repository).values()) {
+        if (added.outgoingEdgesOf(id).isEmpty()) {
+          queue.push(id);
+        }
+      }
+      while (!queue.isEmpty()) {
+        final ObjectId id = queue.pop();
+        if (!added.containsVertex(id)) {
+          continue;
+        }
+        final Set<DefaultEdge> edges = added.incomingEdgesOf(id);
+        if (!edges.isEmpty()) {
+          queue.push(id);
+          for (DefaultEdge edge : edges) {
+            queue.push(added.getEdgeSource(edge));
+          }
+          added.removeAllEdges(new HashSet<>(edges));
+        } else {
+          added.removeVertex(id);
+          newRevisions.add(id);
+        }
+      }
+    }
+    return newRevisions;
+  }
 
+  @NotNull
+  private static <V, E> Collection<V> getEdgeVertexes(@NotNull Set<E> edges, @NotNull Function<E, V> edgeToVertex) {
+    final List<V> result = new ArrayList<>(edges.size());
+    for (E edge : edges) {
+      result.add(edgeToVertex.apply(edge));
+    }
+    return result;
   }
 
   public static ObjectId createCacheCommit(@NotNull ObjectInserter inserter, @NotNull ObjectId parent, @NotNull RevCommit commit, @NotNull CacheRevision cacheRevision) throws IOException {
