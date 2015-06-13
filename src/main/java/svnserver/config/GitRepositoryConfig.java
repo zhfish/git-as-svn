@@ -19,6 +19,7 @@ import svnserver.repository.VcsRepository;
 import svnserver.repository.git.GitCreateMode;
 import svnserver.repository.git.GitPushMode;
 import svnserver.repository.git.GitRepository;
+import svnserver.repository.git.LayoutHelper;
 import svnserver.repository.locks.PersistentLockFactory;
 
 import java.io.File;
@@ -38,9 +39,11 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   @NotNull
   private static final Logger log = LoggerFactory.getLogger(GitRepositoryConfig.class);
   @NotNull
+  @Deprecated
   private String branch = "master";
   @NotNull
   private String path = ".git";
+  @SuppressWarnings("MismatchedReadAndWriteOfArray")
   @NotNull
   private String[] submodules = {};
   @NotNull
@@ -48,6 +51,7 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   @NotNull
   private GitCreateMode createMode = GitCreateMode.ERROR;
   private boolean renameDetection = true;
+  private boolean resetCache = false;
 
   @NotNull
   public String[] getSubmodules() {
@@ -92,6 +96,11 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   @NotNull
   @Override
   public VcsRepository create(@NotNull File basePath, @NotNull DB cacheDb) throws IOException, SVNException {
+    final Repository repo = createRepository(basePath);
+    if (resetCache) {
+      log.warn("Clear repository cache");
+      LayoutHelper.resetCache(repo);
+    }
     return new GitRepository(createRepository(basePath), createLinkedRepositories(), getPushMode(), branch, isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
   }
 }

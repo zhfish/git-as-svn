@@ -70,6 +70,15 @@ public class LayoutHelper {
     return ref;
   }
 
+  public static void resetCache(@NotNull Repository repository) throws IOException {
+    final Ref ref = repository.getRef(PREFIX_REF);
+    if (ref != null) {
+      final RefUpdate refUpdate = repository.updateRef(PREFIX_REF);
+      refUpdate.setForceUpdate(true);
+      refUpdate.delete();
+    }
+  }
+
   /**
    * Get active branches with commits from repository.
    *
