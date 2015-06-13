@@ -30,7 +30,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Function;
 
 /**
  * Helper for creating svn layout in git repository.
@@ -45,9 +44,7 @@ public class LayoutHelper {
       new RefMappingPrefix(Constants.R_TAGS, "tags/")
   );
   @NotNull
-  private static final String OLD_CACHE_REF = "refs/git-as-svn/v0";
-  @NotNull
-  private static final String PREFIX_REF = "refs/git-as-svn/v1/";
+  private static final String PREFIX_REF = "refs/git-as-svn/v2/";
   @NotNull
   private static final String ENTRY_COMMIT_YML = "commit.yml";
   @NotNull
@@ -56,20 +53,10 @@ public class LayoutHelper {
   private static final String ENTRY_ROOT = "svn";
   @NotNull
   private static final String ENTRY_UUID = "uuid";
-  @NotNull
-  private static final String PREFIX_ANONIMOUS = "unnamed/";
 
   @NotNull
   public static Ref initRepository(@NotNull Repository repository, String branch) throws IOException {
     Ref ref = repository.getRef(PREFIX_REF + branch);
-    if (ref == null) {
-      Ref old = repository.getRef(OLD_CACHE_REF);
-      if (old != null) {
-        final RefUpdate refUpdate = repository.updateRef(PREFIX_REF + branch);
-        refUpdate.setNewObjectId(old.getObjectId());
-        refUpdate.update();
-      }
-    }
     if (ref == null) {
       final ObjectId revision = createFirstRevision(repository);
       final RefUpdate refUpdate = repository.updateRef(PREFIX_REF + branch);
@@ -79,12 +66,6 @@ public class LayoutHelper {
       if (ref == null) {
         throw new IOException("Can't initialize repository.");
       }
-    }
-    Ref old = repository.getRef(OLD_CACHE_REF);
-    if (old != null) {
-      final RefUpdate refUpdate = repository.updateRef(OLD_CACHE_REF);
-      refUpdate.setForceUpdate(true);
-      refUpdate.delete();
     }
     return ref;
   }
@@ -128,7 +109,7 @@ public class LayoutHelper {
   @Contract("_, _, null -> null; _, _, !null -> !null")
   public static <T extends Collection<ObjectId>> T loadRevisionGraph(@NotNull Repository repository, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph, @Nullable T newRevisions) throws IOException {
     final Deque<ObjectId> queue = new ArrayDeque<>();
-    final DirectedGraph<ObjectId, DefaultEdge> added = new SimpleDirectedGraph<ObjectId, DefaultEdge>(DefaultEdge.class);
+    final DirectedGraph<ObjectId, DefaultEdge> added = new SimpleDirectedGraph<>(DefaultEdge.class);
     RevWalk revWalk = new RevWalk(repository);
     for (RevCommit commit : getBranches(repository).values()) {
       final ObjectId commitId = commit.getId();
@@ -184,15 +165,6 @@ public class LayoutHelper {
     return newRevisions;
   }
 
-  @NotNull
-  private static <V, E> Collection<V> getEdgeVertexes(@NotNull Set<E> edges, @NotNull Function<E, V> edgeToVertex) {
-    final List<V> result = new ArrayList<>(edges.size());
-    for (E edge : edges) {
-      result.add(edgeToVertex.apply(edge));
-    }
-    return result;
-  }
-
   public static ObjectId createCacheCommit(@NotNull ObjectInserter inserter, @NotNull ObjectId parent, @NotNull RevCommit commit, @NotNull CacheRevision cacheRevision) throws IOException {
     final TreeFormatter treeBuilder = new TreeFormatter();
     treeBuilder.append(ENTRY_COMMIT_REF, commit);
@@ -234,95 +206,6 @@ public class LayoutHelper {
     }
   }
 
-  /**
-   * Get new revisions list.
-   *
-   * @param repository    Repository.
-   * @param loaded        Already loaded commits.
-   * @param targetCommits Target commits.
-   * @return Return new commits ordered by creation time. Parent revision always are before child.
-   */
-  public static List<RevCommit> getNewRevisions(@NotNull Repository repository, @NotNull Set<? extends ObjectId> loaded, @NotNull Collection<? extends ObjectId> targetCommits) throws IOException {
-    final Map<RevCommit, RevisionNode> revisionChilds = new HashMap<>();
-    final Deque<RevCommit> revisionFirst = new ArrayDeque<>();
-    final Deque<RevCommit> revisionQueue = new ArrayDeque<>();
-    final RevWalk revWalk = new RevWalk(repository);
-    for (ObjectId target : targetCommits) {
-      if (!loaded.contains(target)) {
-        final RevCommit revCommit = revWalk.parseCommit(target);
-        revisionQueue.add(revCommit);
-        revisionChilds.put(revCommit, new RevisionNode());
-      }
-    }
-    while (!revisionQueue.isEmpty()) {
-      final RevCommit commit = revWalk.parseCommit(revisionQueue.remove());
-      if (commit == null || loaded.contains(commit.getId())) {
-        revisionFirst.add(commit);
-        continue;
-      }
-      if (commit.getParentCount() > 0) {
-        final RevisionNode commitNode = revisionChilds.get(commit);
-        for (RevCommit parent : commit.getParents()) {
-          commitNode.parents.add(parent);
-          revisionChilds.computeIfAbsent(parent, (id) -> {
-            revisionQueue.add(parent);
-            return new RevisionNode();
-          }).childs.add(commit);
-        }
-      } else {
-        revisionFirst.add(commit);
-      }
-    }
-    final List<RevCommit> result = new ArrayList<>(revisionChilds.size());
-    while (!revisionChilds.isEmpty()) {
-      RevCommit firstCommit = null;
-      RevisionNode firstNode = null;
-      final Iterator<RevCommit> iterator = revisionFirst.iterator();
-      while (iterator.hasNext()) {
-        final RevCommit iterCommit = iterator.next();
-        final RevisionNode iterNode = revisionChilds.get(iterCommit);
-        if (iterNode == null) {
-          iterator.remove();
-          continue;
-        }
-        if (!iterNode.parents.isEmpty()) {
-          iterator.remove();
-        } else if (firstCommit == null || firstCommit.getCommitTime() > iterCommit.getCommitTime()) {
-          firstNode = iterNode;
-          firstCommit = iterCommit;
-        }
-      }
-      if (firstNode == null || firstCommit == null) {
-        throw new IllegalStateException();
-      }
-      revisionChilds.remove(firstCommit);
-      result.add(firstCommit);
-      for (RevCommit childId : firstNode.childs) {
-        final RevisionNode childNode = revisionChilds.get(childId);
-        if (childNode != null) {
-          childNode.parents.remove(firstCommit);
-          if (childNode.parents.isEmpty()) {
-            revisionFirst.add(childId);
-          }
-        }
-      }
-    }
-    return result;
-  }
-
-  public static int compareBranches(@NotNull String branch1, @NotNull String branch2) {
-    final int p1 = layoutMapping.getPriority(branch1);
-    final int p2 = layoutMapping.getPriority(branch2);
-    if (p1 != p2) {
-      return p1 - p2;
-    }
-    return branch1.compareTo(branch2);
-  }
-
-  public static String getAnonimousBranch(RevCommit commit) {
-    return PREFIX_ANONIMOUS + commit.getId().abbreviate(6).name() + '/';
-  }
-
   @NotNull
   public static CacheRevision loadCacheRevision(@NotNull ObjectReader objectReader, @NotNull RevCommit commit) throws IOException {
     return CacheHelper.load(TreeWalk.forPath(objectReader, ENTRY_COMMIT_YML, commit.getTree()));
@@ -336,13 +219,6 @@ public class LayoutHelper {
       return new String(objectReader.open(treeWalk.getObjectId(0)).getBytes(), StandardCharsets.UTF_8);
     }
     throw new FileNotFoundException(ENTRY_UUID);
-  }
-
-  private static class RevisionNode {
-    @NotNull
-    private final Set<RevCommit> childs = new HashSet<>();
-    @NotNull
-    private final Set<RevCommit> parents = new HashSet<>();
   }
 
   @NotNull
