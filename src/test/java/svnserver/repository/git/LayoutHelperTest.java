@@ -33,7 +33,7 @@ public class LayoutHelperTest {
     try (SvnTestServer master = SvnTestServer.createMasterRepository()) {
       final Repository repository = master.getRepository();
       final DirectedGraph<ObjectId, DefaultEdge> graph = new SimpleDirectedGraph<>(DefaultEdge.class);
-      final ArrayList<ObjectId> newRevisions = LayoutHelper.loadRevisionGraph(repository, graph, new ArrayList<>());
+      final ArrayList<ObjectId> newRevisions = LayoutHelper.loadRevisionGraph(repository, LayoutHelper.getBranches(repository).values(), graph, new ArrayList<>());
       Assert.assertEquals(newRevisions.size(), graph.vertexSet().size());
 
       final RevWalk revWalk = new RevWalk(repository);

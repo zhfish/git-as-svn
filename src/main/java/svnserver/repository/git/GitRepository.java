@@ -143,7 +143,7 @@ public class GitRepository implements VcsRepository {
     // Fast check.
     lock.readLock().lock();
     SimpleDirectedGraph<ObjectId, DefaultEdge> graph = new SimpleDirectedGraph<>(DefaultEdge.class);
-    LayoutHelper.loadRevisionGraph(repository, graph, null);
+    LayoutHelper.loadRevisionGraph(repository, LayoutHelper.getBranches(repository).values(), graph, null);
     try {
       final int lastRevision = revisions.size() - 1;
       final ObjectId lastCommitId;

@@ -113,13 +113,13 @@ public class LayoutHelper {
    * @throws IOException
    * @apiNote Child revisions always added to newRevisions collection before parent revision.
    */
-  @Contract("_, _, null -> null; _, _, !null -> !null")
-  public static <T extends Collection<ObjectId>> T loadRevisionGraph(@NotNull Repository repository, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph, @Nullable T newRevisions) throws IOException {
+  @Contract("_, _, _, null -> null; _, _, _, !null -> !null")
+  public static <T extends Collection<ObjectId>> T loadRevisionGraph(@NotNull Repository repository, @NotNull Collection<? extends ObjectId> heads, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph, @Nullable T newRevisions) throws IOException {
     final Deque<ObjectId> queue = new ArrayDeque<>();
     final DirectedGraph<ObjectId, DefaultEdge> added = new SimpleDirectedGraph<>(DefaultEdge.class);
     RevWalk revWalk = new RevWalk(repository);
-    for (RevCommit commit : getBranches(repository).values()) {
-      final ObjectId commitId = commit.getId();
+    for (ObjectId commit : heads) {
+      final ObjectId commitId = commit.toObjectId();
       if (graph.addVertex(commitId)) {
         queue.add(commitId);
         added.addVertex(commitId);
@@ -133,7 +133,7 @@ public class LayoutHelper {
       final RevCommit commit = revWalk.parseCommit(id);
       graph.addVertex(commit);
       for (RevCommit parent : commit.getParents()) {
-        final ObjectId parentId = parent.getId();
+        final ObjectId parentId = parent.toObjectId();
         if (graph.addVertex(parentId)) {
           added.addVertex(parentId);
           queue.add(parent);
@@ -146,7 +146,7 @@ public class LayoutHelper {
     }
     if (newRevisions != null) {
       // Create new revisions list in right order.
-      for (ObjectId id : getBranches(repository).values()) {
+      for (ObjectId id : heads) {
         if (added.outgoingEdgesOf(id).isEmpty()) {
           queue.push(id);
         }
