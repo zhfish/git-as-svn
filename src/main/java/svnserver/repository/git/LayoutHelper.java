@@ -30,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Helper for creating svn layout in git repository.
@@ -111,7 +112,7 @@ public class LayoutHelper {
    * @param <T>          Revisions type.
    * @return Return newRevisions.
    * @throws IOException
-   * @apiNote Child revisions always added to newRevisions collection before parent revision.
+   * @apiNote Child revisions always added to newRevisions collection after parent revision.
    */
   @Contract("_, _, _, null -> null; _, _, _, !null -> !null")
   public static <T extends Collection<ObjectId>> T loadRevisionGraph(@NotNull Repository repository, @NotNull Collection<? extends ObjectId> heads, @NotNull DirectedGraph<ObjectId, DefaultEdge> graph, @Nullable T newRevisions) throws IOException {
@@ -147,7 +148,7 @@ public class LayoutHelper {
     if (newRevisions != null) {
       // Create new revisions list in right order.
       for (ObjectId id : heads) {
-        if (added.outgoingEdgesOf(id).isEmpty()) {
+        if (added.outgoingEdgesOf(id).isEmpty() && !queue.contains(id)) {
           queue.push(id);
         }
       }
@@ -294,5 +295,54 @@ public class LayoutHelper {
       throw new IllegalStateException();
     }
     return inserter.insert(rootTree);
+  }
+
+  /**
+   * Sort revisions by date.
+   *
+   * @param revisions  Partially sorted revisions (child revisions always after parent revisions).
+   * @param repository Repository.
+   * @return Revision sorted by date, but child revisions always after parent revisions.
+   */
+  @NotNull
+  public static List<ObjectId> sortRevision(@NotNull Repository repository, @NotNull Collection<ObjectId> revisions, @NotNull Comparator<RevCommit> comparator) throws IOException {
+    final RevWalk revWalk = new RevWalk(repository);
+    final List<RevCommit> commits = new ArrayList<>();
+    for (ObjectId objectId : revisions) {
+      commits.add(revWalk.parseCommit(objectId));
+    }
+
+    int maxIndex = 1;
+    while (maxIndex < commits.size() - 1) {
+      RevCommit maxRev = commits.get(maxIndex);
+      int minIndex = maxIndex;
+      for (int index = maxIndex - 1; index >= 0; index--) {
+        RevCommit minRev = commits.get(index);
+        if (isParentOf(minRev, maxRev)) {
+          break;
+        }
+        if (comparator.compare(minRev, maxRev) > 0) {
+          minIndex = index;
+        }
+      }
+      for (int index = maxIndex - 1; index >= minIndex; index--) {
+        RevCommit a = commits.get(index + 1);
+        RevCommit b = commits.get(index);
+        commits.set(index, a);
+        commits.set(index + 1, b);
+      }
+      maxIndex = minIndex + 1;
+    }
+
+    return commits.stream().map(RevCommit::getId).collect(Collectors.toList());
+  }
+
+  private static boolean isParentOf(@NotNull RevCommit parent, @NotNull RevCommit child) {
+    for (RevCommit item : parent.getParents()) {
+      if (item.equals(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

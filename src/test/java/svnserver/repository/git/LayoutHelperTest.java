@@ -11,6 +11,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.jetbrains.annotations.NotNull;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleDirectedGraph;
@@ -18,8 +19,10 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 import svnserver.SvnTestServer;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -35,18 +38,33 @@ public class LayoutHelperTest {
       final DirectedGraph<ObjectId, DefaultEdge> graph = new SimpleDirectedGraph<>(DefaultEdge.class);
       final ArrayList<ObjectId> newRevisions = LayoutHelper.loadRevisionGraph(repository, LayoutHelper.getBranches(repository).values(), graph, new ArrayList<>());
       Assert.assertEquals(newRevisions.size(), graph.vertexSet().size());
+      checkOrder(repository, newRevisions);
+    }
+  }
 
-      final RevWalk revWalk = new RevWalk(repository);
-      final Set<ObjectId> competed = new HashSet<>();
-      for (ObjectId id : newRevisions) {
-        final RevCommit commit = revWalk.parseCommit(id);
-        if (commit != null) {
-          for (RevCommit parent : commit.getParents()) {
-            Assert.assertTrue(competed.contains(parent.getId()), "Invalid commit order: " + commit.getId().abbreviate(7).name() + " -> " + parent.getId().abbreviate(7).name());
-          }
+  @Test(dependsOnMethods = "loadRevisionGraphTest")
+  public void sortRevisionGraphTest() throws Exception {
+    try (SvnTestServer master = SvnTestServer.createMasterRepository()) {
+      final Repository repository = master.getRepository();
+      final DirectedGraph<ObjectId, DefaultEdge> graph = new SimpleDirectedGraph<>(DefaultEdge.class);
+      final List<ObjectId> rawRevisions = LayoutHelper.loadRevisionGraph(repository, LayoutHelper.getBranches(repository).values(), graph, new ArrayList<>());
+      final List<ObjectId> newRevisions = LayoutHelper.sortRevision(repository, rawRevisions, (a, b) -> Integer.compare(a.getCommitTime(), b.getCommitTime()));
+      Assert.assertEquals(newRevisions.size(), graph.vertexSet().size());
+      checkOrder(repository, newRevisions);
+    }
+  }
+
+  private void checkOrder(@NotNull Repository repository, @NotNull List<ObjectId> revisions) throws IOException {
+    final RevWalk revWalk = new RevWalk(repository);
+    final Set<ObjectId> competed = new HashSet<>();
+    for (ObjectId id : revisions) {
+      final RevCommit commit = revWalk.parseCommit(id);
+      if (commit != null) {
+        for (RevCommit parent : commit.getParents()) {
+          Assert.assertTrue(competed.contains(parent.getId()), "Invalid commit order: " + commit.getId().abbreviate(7).name() + " -> " + parent.getId().abbreviate(7).name());
         }
-        competed.add(id);
       }
+      competed.add(id);
     }
   }
 }
