@@ -81,7 +81,7 @@ public class SvnLockTest {
     try (SvnTester server = factory.create()) {
       final SVNRepository repo = server.openSvnRepository();
 
-      final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+      final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
       editor.openRoot(-1);
       editor.addDir("/example", null, -1);
       editor.addFile("/example/example.txt", null, -1);
@@ -233,7 +233,7 @@ public class SvnLockTest {
       try {
         final Map<String, String> locks = new HashMap<>();
         locks.put(oldLock.getPath(), oldLock.getID());
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", locks, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", locks, false, null);
         editor.openRoot(-1);
         editor.openFile("/example.txt", latestRevision);
         sendDeltaAndClose(editor, "/example.txt", "", "Source content");
@@ -266,7 +266,7 @@ public class SvnLockTest {
       {
         final Map<String, String> locks = new HashMap<>();
         locks.put("/example.txt", lock.getID());
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", locks, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", locks, false, null);
         editor.openRoot(-1);
         editor.openFile("/example.txt", latestRevision);
         sendDeltaAndClose(editor, "/example.txt", "", "Source content");
@@ -296,7 +296,7 @@ public class SvnLockTest {
       {
         final Map<String, String> locks = new HashMap<>();
         locks.put("/example.txt", lock.getID());
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", locks, true, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", locks, true, null);
         editor.openRoot(-1);
         editor.openFile("/example.txt", latestRevision);
         sendDeltaAndClose(editor, "/example.txt", "", "Source content");
@@ -325,7 +325,7 @@ public class SvnLockTest {
       Assert.assertNotNull(lock);
 
       try {
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
         editor.openRoot(-1);
         editor.deleteEntry("/example.txt", latestRevision);
         editor.closeDir();
@@ -347,7 +347,7 @@ public class SvnLockTest {
     try (SvnTester server = factory.create()) {
       final SVNRepository repo = server.openSvnRepository();
       {
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
         editor.openRoot(-1);
         editor.addDir("/example", null, -1);
         editor.addFile("/example/example.txt", null, -1);
@@ -361,7 +361,7 @@ public class SvnLockTest {
       final SVNLock lock = lock(repo, "/example/example.txt", latestRevision, false, null);
       Assert.assertNotNull(lock);
       try {
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
         editor.openRoot(-1);
         editor.deleteEntry("/example", latestRevision);
         editor.closeDir();
@@ -383,7 +383,7 @@ public class SvnLockTest {
     try (SvnTester server = factory.create()) {
       final SVNRepository repo = server.openSvnRepository();
       {
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
         editor.openRoot(-1);
         editor.addDir("/example", null, -1);
         editor.addFile("/example/example.txt", null, -1);
@@ -417,7 +417,7 @@ public class SvnLockTest {
     try (SvnTester server = factory.create()) {
       final SVNRepository repo = server.openSvnRepository();
       {
-        final ISVNEditor editor = repo.getCommitEditor("Intital state", null, false, null);
+        final ISVNEditor editor = repo.getCommitEditor("Initial state", null, false, null);
         editor.openRoot(-1);
         editor.addDir("/example", null, -1);
         editor.addFile("/example/example.txt", null, -1);
@@ -432,7 +432,7 @@ public class SvnLockTest {
       Assert.assertNotNull(lock);
       final Map<String, String> locks = new HashMap<>();
       locks.put(lock.getPath(), lock.getID());
-      final ISVNEditor editor = repo.getCommitEditor("Intital state", locks, false, null);
+      final ISVNEditor editor = repo.getCommitEditor("Initial state", locks, false, null);
       editor.openRoot(-1);
       editor.deleteEntry("/example", latestRevision);
       editor.closeDir();
