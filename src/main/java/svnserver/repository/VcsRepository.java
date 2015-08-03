@@ -14,7 +14,6 @@ import svnserver.repository.locks.LockManagerWrite;
 import svnserver.repository.locks.LockWorker;
 
 import java.io.IOException;
-import java.util.Map;
 
 /**
  * Repository interface.
@@ -65,32 +64,6 @@ public interface VcsRepository {
   VcsRevision getRevisionInfo(int revision) throws IOException, SVNException;
 
   /**
-   * Create new file in repository.
-   *
-   * @return File updater.
-   */
-  @NotNull
-  VcsDeltaConsumer createFile() throws IOException, SVNException;
-
-  /**
-   * Modification of the existing file.
-   *
-   * @param file File for modification.
-   * @return File updater.
-   */
-  @NotNull
-  VcsDeltaConsumer modifyFile(@NotNull VcsFile file) throws IOException, SVNException;
-
-  /**
-   * Create tree for commit.
-   *
-   * @return Commit build.
-   * @throws IOException
-   */
-  @NotNull
-  VcsCommitBuilder createCommitBuilder(@NotNull LockManagerWrite lockManager, @NotNull Map<String, String> locks) throws IOException, SVNException;
-
-  /**
    * Get last file update in target revision.
    *
    * @param nodePath       File path.
@@ -112,4 +85,9 @@ public interface VcsRepository {
   @NotNull
   <T> T wrapLockWrite(@NotNull LockWorker<T, LockManagerWrite> work) throws SVNException, IOException;
 
+  /**
+   * Create commit writer.
+   */
+  @NotNull
+  VcsWriter createWriter() throws SVNException, IOException;
 }
