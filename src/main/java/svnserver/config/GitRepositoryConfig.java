@@ -37,6 +37,8 @@ import java.util.List;
 @ConfigType("git")
 public final class GitRepositoryConfig implements RepositoryConfig {
   @NotNull
+  private static final String SVN_REF = "refs/git-as-svn/v2";
+  @NotNull
   private static final Logger log = LoggerFactory.getLogger(GitRepositoryConfig.class);
   @NotNull
   @Deprecated
@@ -99,8 +101,8 @@ public final class GitRepositoryConfig implements RepositoryConfig {
     final Repository repo = createRepository(basePath);
     if (resetCache) {
       log.warn("Clear repository cache");
-      LayoutHelper.resetCache(repo);
+      LayoutHelper.resetCache(repo, SVN_REF);
     }
-    return new GitRepository(createRepository(basePath), createLinkedRepositories(), getPushMode(), branch, isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
+    return new GitRepository(createRepository(basePath), createLinkedRepositories(), getPushMode(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
   }
 }

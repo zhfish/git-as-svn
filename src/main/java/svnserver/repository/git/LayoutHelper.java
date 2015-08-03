@@ -44,8 +44,6 @@ public class LayoutHelper {
       new RefMappingPrefix(Constants.R_TAGS, "tags/")
   );
   @NotNull
-  private static final String SVN_REF = "refs/git-as-svn/v2";
-  @NotNull
   private static final String ENTRY_COMMIT_YML = "commit.yml";
   @NotNull
   private static final String ENTRY_COMMIT_REF = "commit.ref";
@@ -55,14 +53,14 @@ public class LayoutHelper {
   private static final String ENTRY_UUID = "uuid";
 
   @NotNull
-  public static Ref initRepository(@NotNull Repository repository) throws IOException {
-    Ref ref = repository.getRef(SVN_REF);
+  public static Ref initRepository(@NotNull Repository repository, @NotNull String svnRef) throws IOException {
+    Ref ref = repository.getRef(svnRef);
     if (ref == null) {
       final ObjectId revision = createFirstRevision(repository);
-      final RefUpdate refUpdate = repository.updateRef(SVN_REF);
+      final RefUpdate refUpdate = repository.updateRef(svnRef);
       refUpdate.setNewObjectId(revision);
       refUpdate.update();
-      ref = repository.getRef(SVN_REF);
+      ref = repository.getRef(svnRef);
       if (ref == null) {
         throw new IOException("Can't initialize repository.");
       }
@@ -70,10 +68,10 @@ public class LayoutHelper {
     return ref;
   }
 
-  public static void resetCache(@NotNull Repository repository) throws IOException {
-    final Ref ref = repository.getRef(SVN_REF);
+  public static void resetCache(@NotNull Repository repository, @NotNull String svnRef) throws IOException {
+    final Ref ref = repository.getRef(svnRef);
     if (ref != null) {
-      final RefUpdate refUpdate = repository.updateRef(SVN_REF);
+      final RefUpdate refUpdate = repository.updateRef(svnRef);
       refUpdate.setForceUpdate(true);
       refUpdate.delete();
     }

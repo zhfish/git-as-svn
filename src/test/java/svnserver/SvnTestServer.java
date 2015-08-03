@@ -232,10 +232,12 @@ public final class SvnTestServer implements SvnTester {
     @NotNull
     @Override
     public VcsRepositoryMapping create(@NotNull File basePath, @NotNull DB cacheDb) throws IOException, SVNException {
+      final String testSvnBranch = Constants.R_HEADS + TEST_BRANCH_PREFIX + UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
       return RepositoryListMapping.create(prefix, new GitRepository(
           repository,
           Collections.emptyList(),
           GitPushMode.SIMPLE,
+          testSvnBranch,
           branch,
           true,
           new PersistentLockFactory(cacheDb),

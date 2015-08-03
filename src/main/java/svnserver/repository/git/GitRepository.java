@@ -104,6 +104,7 @@ public class GitRepository implements VcsRepository {
   public GitRepository(@NotNull Repository repository,
                        @NotNull List<Repository> linked,
                        @NotNull GitPushMode pushMode,
+                       @NotNull String svnRef,
                        @NotNull String branch,
                        boolean renameDetection,
                        @NotNull LockManagerFactory lockManagerFactory,
@@ -117,7 +118,7 @@ public class GitRepository implements VcsRepository {
     this.lockManagerFactory = lockManagerFactory;
     linkedRepositories = new ArrayList<>(linked);
 
-    this.svnBranch = LayoutHelper.initRepository(repository).getName();
+    this.svnBranch = LayoutHelper.initRepository(repository, svnRef).getName();
     this.gitBranch = Constants.R_HEADS + branch;
     loadRevisions();
     cacheRevisions();
