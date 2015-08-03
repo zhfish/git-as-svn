@@ -10,11 +10,11 @@ package svnserver.config;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
 import org.eclipse.jgit.lib.Repository;
 import org.jetbrains.annotations.NotNull;
-import org.mapdb.DB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNException;
 import svnserver.config.serializer.ConfigType;
+import svnserver.context.SharedContext;
 import svnserver.repository.VcsRepository;
 import svnserver.repository.git.GitCreateMode;
 import svnserver.repository.git.GitPushMode;
@@ -23,10 +23,7 @@ import svnserver.repository.git.LayoutHelper;
 import svnserver.repository.locks.PersistentLockFactory;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Repository configuration.
@@ -47,18 +44,11 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   private String path = ".git";
   @SuppressWarnings("MismatchedReadAndWriteOfArray")
   @NotNull
-  private String[] submodules = {};
-  @NotNull
   private GitPushMode pushMode = GitPushMode.NATIVE;
   @NotNull
   private GitCreateMode createMode = GitCreateMode.ERROR;
   private boolean renameDetection = true;
   private boolean resetCache = false;
-
-  @NotNull
-  public String[] getSubmodules() {
-    return submodules;
-  }
 
   @NotNull
   public GitPushMode getPushMode() {
@@ -81,28 +71,13 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   }
 
   @NotNull
-  public List<Repository> createLinkedRepositories() throws IOException {
-    final List<Repository> result = new ArrayList<>();
-    for (String linkedPath : getSubmodules()) {
-      final File file = new File(linkedPath).getAbsoluteFile();
-      if (!file.exists()) {
-        throw new FileNotFoundException(file.getPath());
-      }
-      log.info("Linked repository path: {}", file);
-      final FileRepository linkedRepository = new FileRepository(file);
-      result.add(linkedRepository);
-    }
-    return result;
-  }
-
-  @NotNull
   @Override
-  public VcsRepository create(@NotNull File basePath, @NotNull DB cacheDb) throws IOException, SVNException {
-    final Repository repo = createRepository(basePath);
+  public VcsRepository create(@NotNull SharedContext context) throws IOException, SVNException {
+    final Repository repo = createRepository(context.getBasePath());
     if (resetCache) {
       log.warn("Clear repository cache");
       LayoutHelper.resetCache(repo, SVN_REF);
     }
-    return new GitRepository(createRepository(basePath), createLinkedRepositories(), getPushMode(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(cacheDb), cacheDb);
+    return new GitRepository(context, createRepository(context.getBasePath()), getPushMode(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(context.getCacheDB()));
   }
 }
