@@ -26,9 +26,11 @@ import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import svnserver.config.*;
 import svnserver.context.SharedContext;
+import svnserver.ext.gitlfs.storage.LfsStorage;
+import svnserver.ext.gitlfs.storage.memory.LfsMemoryStorage;
 import svnserver.repository.VcsRepositoryMapping;
-import svnserver.repository.git.GitPushMode;
 import svnserver.repository.git.GitRepository;
+import svnserver.repository.git.push.GitPushEmbedded;
 import svnserver.repository.locks.PersistentLockFactory;
 import svnserver.repository.mapping.RepositoryListMapping;
 import svnserver.server.SvnServer;
@@ -105,6 +107,7 @@ public final class SvnTestServer implements SvnTester {
           new LocalUserDBConfig.UserEntry(USER_NAME, REAL_NAME, EMAIL, PASSWORD)
       }));
     }
+    config.getShared().add(context -> context.add(LfsStorage.class, new LfsMemoryStorage()));
     server = new SvnServer(tempDirectory, config);
     server.start();
     log.info("Temporary server started (url: {}, path: {}, branch: {} as {})", getUrl(), repository.getDirectory(), srcBranch, testBranch);
@@ -235,7 +238,7 @@ public final class SvnTestServer implements SvnTester {
       return RepositoryListMapping.create(prefix, new GitRepository(
           context,
           repository,
-          GitPushMode.SIMPLE,
+          new GitPushEmbedded("", "", ""),
           testSvnBranch,
           branch,
           true,
