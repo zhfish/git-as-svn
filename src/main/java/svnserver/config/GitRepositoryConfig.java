@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNException;
 import svnserver.config.serializer.ConfigType;
-import svnserver.context.SharedContext;
+import svnserver.context.LocalContext;
 import svnserver.repository.VcsRepository;
 import svnserver.repository.git.GitCreateMode;
 import svnserver.repository.git.GitRepository;
@@ -60,8 +60,7 @@ public final class GitRepositoryConfig implements RepositoryConfig {
   }
 
   @NotNull
-  public Repository createRepository(@NotNull File basePath) throws IOException {
-    final File fullPath = ConfigHelper.joinPath(basePath, path);
+  public Repository createRepository(@NotNull File fullPath) throws IOException {
     if (!fullPath.exists()) {
       log.info("Repository fullPath: {} - not exists, create mode: {}", fullPath, createMode);
       return createMode.createRepository(fullPath, branch);
@@ -72,12 +71,17 @@ public final class GitRepositoryConfig implements RepositoryConfig {
 
   @NotNull
   @Override
-  public VcsRepository create(@NotNull SharedContext context) throws IOException, SVNException {
-    final Repository repo = createRepository(context.getBasePath());
+  public VcsRepository create(@NotNull LocalContext context) throws IOException, SVNException {
+    return create(context, ConfigHelper.joinPath(context.getShared().getBasePath(), path));
+  }
+
+  @NotNull
+  public VcsRepository create(@NotNull LocalContext context, @NotNull File fullPath) throws IOException, SVNException {
+    final Repository repo = createRepository(context.getShared().getBasePath());
     if (resetCache) {
       log.warn("Clear repository cache");
       LayoutHelper.resetCache(repo, SVN_REF);
     }
-    return new GitRepository(context, createRepository(context.getBasePath()), getPusher().create(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(context.getCacheDB()));
+    return new GitRepository(context, createRepository(fullPath), getPusher().create(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(context));
   }
 }

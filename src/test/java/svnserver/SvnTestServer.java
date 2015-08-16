@@ -25,6 +25,7 @@ import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import svnserver.config.*;
+import svnserver.context.LocalContext;
 import svnserver.context.SharedContext;
 import svnserver.ext.gitlfs.storage.LfsStorage;
 import svnserver.ext.gitlfs.storage.memory.LfsMemoryStorage;
@@ -98,6 +99,7 @@ public final class SvnTestServer implements SvnTester {
     }
 
     final Config config = new Config(BIND_HOST, 0);
+    config.setCompressionEnabled(false);
     config.setCacheConfig(new MemoryCacheConfig());
     config.setRepositoryMapping(new TestRepositoryConfig(repository, testBranch, prefix));
     if (userDBConfig != null) {
@@ -235,14 +237,15 @@ public final class SvnTestServer implements SvnTester {
     @Override
     public VcsRepositoryMapping create(@NotNull SharedContext context) throws IOException, SVNException {
       final String testSvnBranch = Constants.R_HEADS + TEST_BRANCH_PREFIX + UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
+      final LocalContext local = new LocalContext(context, "test");
       return RepositoryListMapping.create(prefix, new GitRepository(
-          context,
+          local,
           repository,
           new GitPushEmbedded("", "", ""),
           testSvnBranch,
           branch,
           true,
-          new PersistentLockFactory(context.getCacheDB())
+          new PersistentLockFactory(local)
       ));
     }
   }
