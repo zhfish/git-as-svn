@@ -9,6 +9,8 @@ package svnserver.repository;
 
 import org.jetbrains.annotations.NotNull;
 import org.tmatesoft.svn.core.SVNException;
+import svnserver.auth.User;
+import svnserver.context.LocalContext;
 import svnserver.repository.locks.LockManagerRead;
 import svnserver.repository.locks.LockManagerWrite;
 import svnserver.repository.locks.LockWorker;
@@ -28,6 +30,14 @@ public interface VcsRepository extends AutoCloseable {
    */
   @NotNull
   String getUuid();
+
+  /**
+   * Get repository context.
+   *
+   * @return Repository context.
+   */
+  @NotNull
+  LocalContext getContext();
 
   /**
    * Get latest revision number.
@@ -89,7 +99,7 @@ public interface VcsRepository extends AutoCloseable {
    * Create commit writer.
    */
   @NotNull
-  VcsWriter createWriter() throws SVNException, IOException;
+  VcsWriter createWriter(@NotNull User user) throws SVNException, IOException;
 
   @Override
   void close() throws IOException;

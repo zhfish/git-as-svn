@@ -7,7 +7,7 @@
  */
 package svnserver.ext.gitlab.auth;
 
-import org.gitlab.api.models.GitlabSession;
+import org.gitlab.api.models.GitlabUser;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.tmatesoft.svn.core.SVNException;
@@ -25,7 +25,12 @@ import java.util.Map;
  *
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-public class GitLabUserDB implements UserDB, PasswordChecker {
+public class GitLabUserDB implements UserDB, UserLookupVisitor {
+  @NotNull
+  private static final String PREFIX_USER = "user-";
+  @NotNull
+  private static final String PREFIX_KEY = "key-";
+
   @NotNull
   private final Collection<Authenticator> authenticators = Collections.singleton(new PlainAuthenticator(this));
   @NotNull
@@ -43,27 +48,69 @@ public class GitLabUserDB implements UserDB, PasswordChecker {
 
   @Nullable
   @Override
-  public User check(@NotNull String username, @NotNull String password) throws SVNException, IOException {
+  public User check(@NotNull String userName, @NotNull String password) throws SVNException, IOException {
     try {
-      final GitlabSession session = context.connect(username, password);
-      return new GitLabUser(session);
+      return createUser(context.connect(userName, password));
     } catch (IOException e) {
       return null;
     }
   }
 
-  private static class GitLabUser extends User {
-    private final GitlabSession session;
-
-    public GitLabUser(GitlabSession session) {
-      super(session.getUsername(), session.getName(), session.getEmail());
-      this.session = session;
+  @Nullable
+  @Override
+  public User lookupByUserName(@NotNull String userName) throws SVNException, IOException {
+    try {
+      return createUser(context.connect().getUserViaSudo(userName));
+    } catch (IOException e) {
+      return null;
     }
+  }
 
-    @Override
-    public void updateEnvironment(@NotNull Map<String, String> env) {
-      super.updateEnvironment(env);
-      env.put("GL_ID", "user-" + (int) session.getId());
+  @Nullable
+  @Override
+  public User lookupByExternal(@NotNull String external) throws SVNException, IOException {
+    final Integer userId = removePrefix(external, PREFIX_USER);
+    if (userId != null) {
+      try {
+        return createUser(context.connect().getUser(userId));
+      } catch (IOException e) {
+        return null;
+      }
     }
+    final Integer keyId = removePrefix(external, PREFIX_KEY);
+    if (keyId != null) {
+      try {
+        return createUser(context.connect().getSSHKey(keyId).getUser());
+      } catch (IOException e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  @Override
+  public void updateEnvironment(@NotNull Map<String, String> env, @NotNull User userInfo) {
+    final String externalId = userInfo.getExternalId();
+    if (externalId != null) {
+      env.put("GL_ID", PREFIX_USER + externalId);
+    }
+  }
+
+  @Nullable
+  private Integer removePrefix(@NotNull String glId, @NotNull String prefix) {
+    if (glId.startsWith(prefix)) {
+      int result = 0;
+      for (int i = prefix.length(); i < glId.length(); ++i) {
+        final char c = glId.charAt(i);
+        if (c < '0' || c > '9') return null;
+        result = result * 10 + (c - '0');
+      }
+      return result;
+    }
+    return null;
+  }
+
+  private User createUser(@NotNull GitlabUser user) {
+    return User.create(user.getUsername(), user.getName(), user.getEmail(), user.getId().toString());
   }
 }

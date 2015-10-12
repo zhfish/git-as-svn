@@ -8,13 +8,17 @@
 package svnserver.ext.gitlfs.config;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.tmatesoft.svn.core.SVNException;
 import svnserver.config.SharedConfig;
 import svnserver.config.serializer.ConfigType;
+import svnserver.context.LocalContext;
 import svnserver.context.SharedContext;
 import svnserver.ext.gitlfs.server.LfsServer;
 import svnserver.ext.gitlfs.storage.LfsStorage;
+import svnserver.ext.gitlfs.storage.LfsStorageFactory;
 import svnserver.ext.gitlfs.storage.local.LfsLocalStorage;
+import svnserver.repository.git.GitLocation;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,9 +29,14 @@ import java.io.IOException;
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
 @ConfigType("lfs")
-public class LfsConfig implements SharedConfig {
+public class LfsConfig implements SharedConfig, LfsStorageFactory {
   @NotNull
   private String path = "lfs";
+  @NotNull
+  private String pathFormat = "{0}.git";
+  private boolean compress = true;
+  @Nullable
+  private String token;
 
   @NotNull
   public String getPath() {
@@ -39,19 +48,38 @@ public class LfsConfig implements SharedConfig {
   }
 
   @NotNull
-  public static LfsStorage getStorage(@NotNull SharedContext context) throws IOException, SVNException {
-    return context.getOrCreate(LfsStorage.class, () -> new LfsConfig().createStorage(context));
+  public String getPathFormat() {
+    return pathFormat;
+  }
+
+  public void setPathFormat(@NotNull String pathFormat) {
+    this.pathFormat = pathFormat;
+  }
+
+  public boolean isCompress() {
+    return compress;
+  }
+
+  public void setCompress(boolean compress) {
+    this.compress = compress;
+  }
+
+  @NotNull
+  public static LfsStorage getStorage(@NotNull LocalContext context) throws IOException, SVNException {
+    return context.getShared().getOrCreate(LfsStorageFactory.class, LfsConfig::new).createStorage(context);
   }
 
   @Override
   public void create(@NotNull SharedContext context) throws IOException {
-    context.add(LfsStorage.class, createStorage(context));
-    context.add(LfsServer.class, new LfsServer());
+    context.add(LfsStorageFactory.class, this);
+    context.add(LfsServer.class, new LfsServer(pathFormat, token));
   }
 
   @NotNull
-  private LfsStorage createStorage(@NotNull SharedContext context) {
-    return new LfsLocalStorage(new File(context.getBasePath(), path));
+  public LfsStorage createStorage(@NotNull LocalContext context) {
+    File dataRoot = new File(context.getShared().getBasePath(), path);
+    File metaRoot = new File(context.sure(GitLocation.class).getFullPath(), "lfs/meta");
+    return new LfsLocalStorage(dataRoot, metaRoot, isCompress());
   }
 
 }

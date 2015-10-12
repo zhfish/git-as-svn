@@ -7,7 +7,7 @@
  */
 package svnserver.ext.gitlfs.storage.memory;
 
-import org.apache.commons.io.IOUtils;
+import com.google.common.io.CharStreams;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import svnserver.ext.gitlfs.storage.LfsReader;
@@ -15,6 +15,7 @@ import svnserver.ext.gitlfs.storage.LfsWriter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -30,7 +31,7 @@ public class LfsMemoryStorageTest {
     Assert.assertNull(storage.getReader("sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308"));
 
     // Write new file
-    try (final LfsWriter writer = storage.getWriter()) {
+    try (final LfsWriter writer = storage.getWriter(null)) {
       writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
       Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
     }
@@ -42,7 +43,7 @@ public class LfsMemoryStorageTest {
     Assert.assertEquals(15, reader.getSize());
 
     try (final InputStream stream = reader.openStream()) {
-      Assert.assertEquals(IOUtils.toString(stream, StandardCharsets.UTF_8), "Hello, world!!!");
+      Assert.assertEquals(CharStreams.toString(new InputStreamReader(stream, StandardCharsets.UTF_8)), "Hello, world!!!");
     }
   }
 
@@ -53,13 +54,13 @@ public class LfsMemoryStorageTest {
     Assert.assertNull(storage.getReader("sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308"));
 
     // Write new file
-    try (final LfsWriter writer = storage.getWriter()) {
+    try (final LfsWriter writer = storage.getWriter(null)) {
       writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
       Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
     }
 
     // Write new file
-    try (final LfsWriter writer = storage.getWriter()) {
+    try (final LfsWriter writer = storage.getWriter(null)) {
       writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
       Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
     }

@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNErrorCode;
 import org.tmatesoft.svn.core.SVNErrorMessage;
 import org.tmatesoft.svn.core.SVNException;
-import svnserver.auth.ACL;
 import svnserver.auth.Authenticator;
 import svnserver.auth.User;
 import svnserver.auth.UserDB;
@@ -59,8 +58,6 @@ public class SvnServer extends Thread {
   private static final Logger log = LoggerFactory.getLogger(SvnServer.class);
   private static final long FORCE_SHUTDOWN = TimeUnit.SECONDS.toMillis(5);
   @NotNull
-  private final UserDB userDB;
-  @NotNull
   private final Map<String, BaseCmd<?>> commands = new HashMap<>();
   @NotNull
   private final Map<Long, Socket> connections = new ConcurrentHashMap<>();
@@ -73,8 +70,6 @@ public class SvnServer extends Thread {
   @NotNull
   private final ExecutorService poolExecutor;
   @NotNull
-  private final ACL acl;
-  @NotNull
   private final AtomicBoolean stopped = new AtomicBoolean(false);
   @NotNull
   private final AtomicLong lastSessionId = new AtomicLong();
@@ -86,7 +81,7 @@ public class SvnServer extends Thread {
     this.config = config;
 
     context = SharedContext.create(basePath, config.getCacheConfig().createCache(basePath), config.getShared());
-    userDB = config.getUserDB().create(context);
+    context.add(UserDB.class, config.getUserDB().create(context));
 
     commands.put("commit", new CommitCmd());
     commands.put("diff", new DeltaCmd(DiffParams.class));
@@ -118,7 +113,6 @@ public class SvnServer extends Thread {
 
     repositoryMapping = config.getRepositoryMapping().create(context);
     repositoryMapping.initRevisions();
-    acl = new ACL(config.getAcl());
 
     serverSocket = new ServerSocket();
     serverSocket.setReuseAddress(config.getReuseAddress());
@@ -131,6 +125,11 @@ public class SvnServer extends Thread {
 
   public int getPort() {
     return serverSocket.getLocalPort();
+  }
+
+  @NotNull
+  public SharedContext getContext() {
+    return context;
   }
 
   @Override
@@ -217,11 +216,6 @@ public class SvnServer extends Thread {
     }
   }
 
-  @NotNull
-  public ACL getAcl() {
-    return acl;
-  }
-
   private ClientInfo exchangeCapabilities(SvnServerParser parser, SvnServerWriter writer) throws IOException, SVNException {
     // Анонсируем поддерживаемые функции.
     writer
@@ -262,7 +256,7 @@ public class SvnServer extends Thread {
   @NotNull
   private User authenticate(@NotNull SvnServerParser parser, @NotNull SvnServerWriter writer, @NotNull RepositoryInfo repositoryInfo) throws IOException, SVNException {
     // Отправляем запрос на авторизацию.
-    final Collection<Authenticator> authenticators = userDB.authenticators();
+    final Collection<Authenticator> authenticators = context.sure(UserDB.class).authenticators();
     writer
         .listBegin()
         .word("success")

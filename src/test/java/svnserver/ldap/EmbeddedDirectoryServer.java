@@ -24,7 +24,8 @@ import org.apache.directory.server.protocol.shared.store.LdifFileLoader;
 import org.apache.directory.server.protocol.shared.transport.TcpTransport;
 import org.jetbrains.annotations.NotNull;
 import svnserver.TestHelper;
-import svnserver.config.LDAPUserDBConfig;
+import svnserver.auth.ldap.config.LdapBindSimple;
+import svnserver.auth.ldap.config.LdapUserDBConfig;
 import svnserver.config.UserDBConfig;
 
 import java.io.File;
@@ -106,11 +107,14 @@ public final class EmbeddedDirectoryServer implements AutoCloseable {
   }
 
   public UserDBConfig createUserConfig() throws Exception {
-    final LDAPUserDBConfig config = new LDAPUserDBConfig();
+    final LdapUserDBConfig config = new LdapUserDBConfig();
+    config.setBind(new LdapBindSimple("ldapadmin", "ldapadmin"));
     config.setConnectionUrl("ldap://" + ldapServer.getSaslHost() + ":" + ldapServer.getPort() + "/" + baseDn.getName());
-    config.setUserSearch("(uid={0})");
-    config.setUserSubtree(true);
+    config.setSearchFilter("");
+    config.setLoginAttribute("uid");
+    config.setEmailAttribute("mail");
     config.setNameAttribute("givenName");
+    config.setMaxConnections(3);
     return config;
   }
 }

@@ -7,15 +7,21 @@
  */
 package svnserver.ext.gitlfs.filter;
 
-import org.apache.commons.io.IOUtils;
+import com.google.common.io.ByteStreams;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectStream;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.mapdb.DB;
 import org.tmatesoft.svn.core.SVNException;
+import ru.bozaro.gitlfs.pointer.Constants;
+import ru.bozaro.gitlfs.pointer.Pointer;
+import svnserver.auth.User;
 import svnserver.context.LocalContext;
 import svnserver.ext.gitlfs.config.LfsConfig;
+import svnserver.ext.gitlfs.server.LfsServer;
+import svnserver.ext.gitlfs.server.LfsServerEntry;
 import svnserver.ext.gitlfs.storage.LfsReader;
 import svnserver.ext.gitlfs.storage.LfsStorage;
 import svnserver.ext.gitlfs.storage.LfsWriter;
@@ -43,8 +49,12 @@ public class LfsFilter implements GitFilter {
   private final DB cacheDb;
 
   public LfsFilter(@NotNull LocalContext context) throws IOException, SVNException {
-    this.storage = LfsConfig.getStorage(context.getShared());
+    this.storage = LfsConfig.getStorage(context);
     this.cacheDb = context.getShared().getCacheDB();
+    final LfsServer lfsServer = context.getShared().get(LfsServer.class);
+    if (lfsServer != null) {
+      context.add(LfsServerEntry.class, new LfsServerEntry(lfsServer, context, storage));
+    }
   }
 
   @NotNull
@@ -58,14 +68,17 @@ public class LfsFilter implements GitFilter {
   public String getMd5(@NotNull GitObject<? extends ObjectId> objectId) throws IOException, SVNException {
     final ObjectLoader loader = objectId.openObject();
     final ObjectStream stream = loader.openStream();
-    final byte[] header = new byte[LfsPointer.POINTER_MAX_SIZE];
-    int length = IOUtils.read(stream, header);
+    final byte[] header = new byte[Constants.POINTER_MAX_SIZE];
+    int length = ByteStreams.read(stream, header, 0, header.length);
     if (length < header.length) {
-      final Map<String, String> pointer = LfsPointer.parsePointer(header, 0, length);
+      final Map<String, String> pointer = Pointer.parsePointer(header, 0, length);
       if (pointer != null) {
-        final LfsReader reader = storage.getReader(pointer.get(LfsPointer.OID));
+        final LfsReader reader = storage.getReader(pointer.get(Constants.OID));
         if (reader != null) {
-          return reader.getMd5();
+          String md5 = reader.getMd5();
+          if (md5 != null) {
+            return md5;
+          }
         }
       }
     }
@@ -76,12 +89,12 @@ public class LfsFilter implements GitFilter {
   public long getSize(@NotNull GitObject<? extends ObjectId> objectId) throws IOException, SVNException {
     final ObjectLoader loader = objectId.openObject();
     final ObjectStream stream = loader.openStream();
-    final byte[] header = new byte[LfsPointer.POINTER_MAX_SIZE];
-    int length = IOUtils.read(stream, header);
+    final byte[] header = new byte[Constants.POINTER_MAX_SIZE];
+    int length = ByteStreams.read(stream, header, 0, header.length);
     if (length < header.length) {
-      final Map<String, String> pointer = LfsPointer.parsePointer(header, 0, length);
+      final Map<String, String> pointer = Pointer.parsePointer(header, 0, length);
       if (pointer != null) {
-        final LfsReader reader = storage.getReader(pointer.get(LfsPointer.OID));
+        final LfsReader reader = storage.getReader(pointer.get(Constants.OID));
         if (reader != null) {
           return reader.getSize();
         }
@@ -95,12 +108,12 @@ public class LfsFilter implements GitFilter {
   public InputStream inputStream(@NotNull GitObject<? extends ObjectId> objectId) throws IOException, SVNException {
     final ObjectLoader loader = objectId.openObject();
     final ObjectStream stream = loader.openStream();
-    final byte[] header = new byte[LfsPointer.POINTER_MAX_SIZE];
-    int length = IOUtils.read(stream, header);
+    final byte[] header = new byte[Constants.POINTER_MAX_SIZE];
+    int length = ByteStreams.read(stream, header, 0, header.length);
     if (length < header.length) {
-      final Map<String, String> pointer = LfsPointer.parsePointer(header, 0, length);
+      final Map<String, String> pointer = Pointer.parsePointer(header, 0, length);
       if (pointer != null) {
-        final LfsReader reader = storage.getReader(pointer.get(LfsPointer.OID));
+        final LfsReader reader = storage.getReader(pointer.get(Constants.OID));
         if (reader != null) {
           return reader.openStream();
         }
@@ -111,8 +124,8 @@ public class LfsFilter implements GitFilter {
 
   @NotNull
   @Override
-  public OutputStream outputStream(@NotNull OutputStream stream) throws IOException, SVNException {
-    return new TemporaryOutputStream(storage.getWriter(), stream);
+  public OutputStream outputStream(@NotNull OutputStream stream, @Nullable User user) throws IOException, SVNException {
+    return new TemporaryOutputStream(storage.getWriter(user), stream);
   }
 
   private static class TemporaryInputStream extends InputStream {
@@ -188,9 +201,9 @@ public class LfsFilter implements GitFilter {
 
     @Override
     public void close() throws IOException {
-      final Map<String, String> pointer = LfsPointer.createPointer(writer.finish(null), size);
+      final Map<String, String> pointer = Pointer.createPointer(writer.finish(null), size);
       writer.close();
-      stream.write(LfsPointer.serializePointer(pointer));
+      stream.write(Pointer.serializePointer(pointer));
       stream.close();
     }
   }

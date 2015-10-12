@@ -16,19 +16,22 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tmatesoft.sqljet.core.internal.SqlJetPagerJournalMode;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.internal.wc.DefaultSVNOptions;
 import org.tmatesoft.svn.core.internal.wc.SVNFileUtil;
+import org.tmatesoft.svn.core.internal.wc17.SVNWCContext;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.SVNRepositoryFactory;
 import org.tmatesoft.svn.core.wc2.SvnOperationFactory;
 import svnserver.config.*;
 import svnserver.context.LocalContext;
 import svnserver.context.SharedContext;
-import svnserver.ext.gitlfs.storage.LfsStorage;
+import svnserver.ext.gitlfs.storage.LfsStorageFactory;
 import svnserver.ext.gitlfs.storage.memory.LfsMemoryStorage;
+import svnserver.repository.VcsAccess;
 import svnserver.repository.VcsRepositoryMapping;
 import svnserver.repository.git.GitRepository;
 import svnserver.repository.git.push.GitPushEmbedded;
@@ -53,6 +56,8 @@ public final class SvnTestServer implements SvnTester {
   private static final Logger log = LoggerFactory.getLogger(SvnTestServer.class);
   @NotNull
   public static final String USER_NAME = "tester";
+  @NotNull
+  public static final String USER_NAME_NO_MAIL = "nomail";
   @NotNull
   public static final String REAL_NAME = "Test User";
   @NotNull
@@ -106,10 +111,11 @@ public final class SvnTestServer implements SvnTester {
       config.setUserDB(userDBConfig);
     } else {
       config.setUserDB(new LocalUserDBConfig(new LocalUserDBConfig.UserEntry[]{
-          new LocalUserDBConfig.UserEntry(USER_NAME, REAL_NAME, EMAIL, PASSWORD)
+          new LocalUserDBConfig.UserEntry(USER_NAME, REAL_NAME, EMAIL, PASSWORD),
+          new LocalUserDBConfig.UserEntry(USER_NAME_NO_MAIL, REAL_NAME, null, PASSWORD),
       }));
     }
-    config.getShared().add(context -> context.add(LfsStorage.class, new LfsMemoryStorage()));
+    config.getShared().add(context -> context.add(LfsStorageFactory.class, new LfsMemoryStorage.Factory()));
     server = new SvnServer(tempDirectory, config);
     server.start();
     log.info("Temporary server started (url: {}, path: {}, branch: {} as {})", getUrl(), repository.getDirectory(), srcBranch, testBranch);
@@ -201,7 +207,11 @@ public final class SvnTestServer implements SvnTester {
 
   @NotNull
   public SvnOperationFactory createOperationFactory(@NotNull String userName, @NotNull String password) {
-    final SvnOperationFactory factory = new SvnOperationFactory();
+    final SVNWCContext wcContext = new SVNWCContext(new DefaultSVNOptions(getTempDirectory(), true), null);
+    wcContext.setSqliteTemporaryDbInMemory(true);
+    wcContext.setSqliteJournalMode(SqlJetPagerJournalMode.MEMORY);
+
+    final SvnOperationFactory factory = new SvnOperationFactory(wcContext);
     factory.setOptions(new DefaultSVNOptions(getTempDirectory(), true));
     factory.setAuthenticationManager(BasicAuthenticationManager.newInstance(userName, password.toCharArray()));
     svnFactories.add(factory);
@@ -210,13 +220,23 @@ public final class SvnTestServer implements SvnTester {
 
   @NotNull
   public SVNRepository openSvnRepository() throws SVNException {
+    return openSvnRepository(USER_NAME, PASSWORD);
+  }
+
+  @NotNull
+  public SVNRepository openSvnRepository(@NotNull String userName, @NotNull String password) throws SVNException {
     final SVNRepository repo = SVNRepositoryFactory.create(getUrl());
-    repo.setAuthenticationManager(BasicAuthenticationManager.newInstance(USER_NAME, PASSWORD.toCharArray()));
+    repo.setAuthenticationManager(BasicAuthenticationManager.newInstance(userName, password.toCharArray()));
     return repo;
   }
 
   public void startShutdown() throws IOException {
     server.startShutdown();
+  }
+
+  @NotNull
+  public SharedContext getContext() {
+    return server.getContext();
   }
 
   private static class TestRepositoryConfig implements RepositoryMappingConfig {
@@ -238,10 +258,11 @@ public final class SvnTestServer implements SvnTester {
     public VcsRepositoryMapping create(@NotNull SharedContext context) throws IOException, SVNException {
       final String testSvnBranch = Constants.R_HEADS + TEST_BRANCH_PREFIX + UUID.randomUUID().toString().replaceAll("-", "").substring(0, 8);
       final LocalContext local = new LocalContext(context, "test");
+      local.add(VcsAccess.class, new AclConfig().create(local));
       return RepositoryListMapping.create(prefix, new GitRepository(
           local,
           repository,
-          new GitPushEmbedded("", "", ""),
+        new GitPushEmbedded(local, "", "", ""),
           testSvnBranch,
           branch,
           true,

@@ -82,6 +82,6 @@ public final class GitRepositoryConfig implements RepositoryConfig {
       log.warn("Clear repository cache");
       LayoutHelper.resetCache(repo, SVN_REF);
     }
-    return new GitRepository(context, createRepository(fullPath), getPusher().create(), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(context));
+    return new GitRepository(context, createRepository(fullPath), getPusher().create(context), SVN_REF, branch, isRenameDetection(), new PersistentLockFactory(context));
   }
 }

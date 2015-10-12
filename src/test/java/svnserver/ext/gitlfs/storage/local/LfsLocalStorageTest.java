@@ -7,8 +7,9 @@
  */
 package svnserver.ext.gitlfs.storage.local;
 
-import org.apache.commons.io.IOUtils;
+import com.google.common.io.CharStreams;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import svnserver.TestHelper;
 import svnserver.ext.gitlfs.storage.LfsReader;
@@ -17,6 +18,7 @@ import svnserver.ext.gitlfs.storage.LfsWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -25,16 +27,24 @@ import java.nio.charset.StandardCharsets;
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
 public class LfsLocalStorageTest {
-  @Test
-  public void simple() throws IOException {
+  @DataProvider(name = "compressProvider")
+  public static Object[][] compressProvider() {
+    return new Object[][]{
+        {true},
+        {false},
+    };
+  }
+
+  @Test(dataProvider = "compressProvider")
+  public void simple(boolean compress) throws IOException {
     final File tempDir = TestHelper.createTempDir("git-as-svn");
     try {
-      LfsLocalStorage storage = new LfsLocalStorage(tempDir);
+      LfsLocalStorage storage = new LfsLocalStorage(new File(tempDir, "data"), new File(tempDir, "meta"), compress);
       // Check file is not exists
       Assert.assertNull(storage.getReader("sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308"));
 
       // Write new file
-      try (final LfsWriter writer = storage.getWriter()) {
+      try (final LfsWriter writer = storage.getWriter(null)) {
         writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
         Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
       }
@@ -46,29 +56,29 @@ public class LfsLocalStorageTest {
       Assert.assertEquals(15, reader.getSize());
 
       try (final InputStream stream = reader.openStream()) {
-        Assert.assertEquals(IOUtils.toString(stream, StandardCharsets.UTF_8), "Hello, world!!!");
+        Assert.assertEquals(CharStreams.toString(new InputStreamReader(stream, StandardCharsets.UTF_8)), "Hello, world!!!");
       }
     } finally {
       TestHelper.deleteDirectory(tempDir);
     }
   }
 
-  @Test
-  public void alreadyAdded() throws IOException {
+  @Test(dataProvider = "compressProvider")
+  public void alreadyAdded(boolean compress) throws IOException {
     final File tempDir = TestHelper.createTempDir("git-as-svn");
     try {
-      LfsLocalStorage storage = new LfsLocalStorage(tempDir);
+      LfsLocalStorage storage = new LfsLocalStorage(new File(tempDir, "data"), new File(tempDir, "meta"), compress);
       // Check file is not exists
       Assert.assertNull(storage.getReader("sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308"));
 
       // Write new file
-      try (final LfsWriter writer = storage.getWriter()) {
+      try (final LfsWriter writer = storage.getWriter(null)) {
         writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
         Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
       }
 
       // Write new file
-      try (final LfsWriter writer = storage.getWriter()) {
+      try (final LfsWriter writer = storage.getWriter(null)) {
         writer.write("Hello, world!!!".getBytes(StandardCharsets.UTF_8));
         Assert.assertEquals(writer.finish(null), "sha256:61f27ddd5b4e533246eb76c45ed4bf4504daabce12589f97b3285e9d3cd54308");
       }
