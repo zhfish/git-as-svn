@@ -5,21 +5,16 @@
  * including this file, may be copied, modified, propagated, or distributed
  * except according to the terms contained in the LICENSE file.
  */
-package svnserver.ext.web.annotations;
+package svnserver.repository;
 
-import javax.ws.rs.NameBinding;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.io.IOException;
 
 /**
- * Annotation marker for REST-methods with authentication.
+ * Entry forbidden.
  *
  * @author Artem V. Navrotskiy <bozaro@users.noreply.github.com>
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Retention(value = RetentionPolicy.RUNTIME)
-@NameBinding
-public @interface SecureReader {
+public class SvnForbiddenException extends IOException {
+  public SvnForbiddenException() {
+  }
 }
