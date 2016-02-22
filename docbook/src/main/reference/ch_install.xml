@@ -231,6 +231,49 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
   },
   "expires_at": "2016-02-19T18:56:59Z"
 }</programlisting>
+
+      <important>
+        <para>Базовый URL для параметр <varname>href</varname> задаётся в
+        конфигурационном файле в параметре <varname>baseUrl</varname> секции
+        <varname>!web</varname>.</para>
+      </important>
+    </section>
+  </section>
+
+  <section>
+    <title>Настройка LFS сервера</title>
+
+    <para/>
+
+    <section>
+      <title>Настройка встроенного LFS-сервера</title>
+
+      <para/>
+    </section>
+
+    <section>
+      <title>Использование стороннего LFS-сервера</title>
+
+      <para/>
+    </section>
+
+    <section>
+      <title>Настройка обратного проксирования в nginx</title>
+
+      <para>Для настройки обратного проксирования в
+      <productname>nginx</productname> необходимо прописать локальный адрес
+      Git as Subversion сервера:</para>
+
+      <programlisting xml:lang="C">upstream gitsvn {
+  server      localhost:8123  fail_timeout=5s;
+  keepalive   100;
+}</programlisting>
+
+      <para>И добавить перенаправление на Git as Subversion для страниц по
+      маске:</para>
+
+      <programlisting xml:lang="C"><xi:include
+        href="nginx.location.txt" parse="text"/></programlisting>
     </section>
   </section>
 
@@ -248,12 +291,7 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
 
       <listitem>
         <para>xml2po (пакет gnome-doc-utils) — необходимо для сборки
-        документации;</para>
-      </listitem>
-
-      <listitem>
-        <para>protoc (пакет protobuf-compiler) — необходимо для сборки
-        API.</para>
+        документации.</para>
       </listitem>
     </orderedlist>
 

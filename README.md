@@ -51,79 +51,18 @@ Implementation status:
  * svn cat, ls - works
  * svn replay (svnsync) - works
 
+Also supported:
+
+ * Embedded git-lfs server for Git users.
+ * GitLab integration.
+
 ## System requirements
 Server-side:
+
  * Java 8+
  * git repository
 
 On the client side it is strongly recommended to use the tool with support for Subversion 1.8+.
-
-## SVN protocol description
-
- * http://svn.apache.org/repos/asf/subversion/trunk/subversion/libsvn_ra_svn/protocol
- * http://svn.apache.org/repos/asf/subversion/trunk/notes/
-
-## GitLab integration
-
-Now we support limited GitLab integration (see config-gitlab.example):
-
- * Load repository list from GitLab on startup (no dynamically update yet)
- * Authentication via GitLab API
-
-### LFS for Git SSH users (git-lfs-authenticate)
-
-For support SSO git-lfs authentication you need to create file ```/usr/local/bin/git-lfs-authenticate``` with content:
-
-```
-#!/bin/sh
-# TOKEN - token parameter in !lfs section
-# BASE  - base url
-TOKEN=secret
-BASE=http://localhost:8123
-curl -s -d "token=${TOKEN}" -d "external=${GL_ID}" ${BASE}/$1/auth/lfs
-```
-
-Also you need some GitLab patches:
-
- * [#230 (gitlab-shell)](https://github.com/gitlabhq/gitlab-shell/pull/230): Add git-lfs-authenticate to server white list (merged to 7.14.1);
- * [#237 (gitlab-shell)](https://github.com/gitlabhq/gitlab-shell/pull/237): Execute git-lfs-authenticate command with original arguments (merged to 8.2.0);
- * [#9591 (gitlabhq)](https://github.com/gitlabhq/gitlabhq/pull/9591): Add API for lookup user information by SSH key ID (merged to 8.0.0).
- * [#9728 (gitlabhq)](https://github.com/gitlabhq/gitlabhq/pull/9728): Show "Empty Repository Page" for repository without branches (merged to 8.2.0).
-
-### LFS for Git HTTP users
-
-#### Reverse proxy
-
-You need add git-as-svn to GitLab reverse proxy by modifying ```/var/opt/gitlab/nginx/conf/gitlab-http.conf``` file:
-
- * Add git-as-svn upstream server:
-```
- upstream gitsvn {
-   server      localhost:8123  fail_timeout=5s;
-   keepalive   100;
- } 
-```
- * Add resource redirection:
-```
-   location ~ ^.*\.git/info/lfs/ {
-     proxy_read_timeout      300;
-     proxy_connect_timeout   300;
-     proxy_redirect          off;
- 
-     proxy_http_version  1.1;
-     proxy_set_header    Connection          "";
- 
-     proxy_set_header    Host                $http_host;
-     proxy_set_header    X-Real-IP           $remote_addr;
-     proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
-     proxy_set_header    X-Forwarded-Proto   $scheme;
-     proxy_set_header    X-Frame-Options     SAMEORIGIN;
-
-     proxy_pass http://gitsvn;
-   }
-```
-
-Also you need to set ```baseUrl``` parameter in ```!web``` section of git-as-svn configuration file.
 
 # How to use
 
