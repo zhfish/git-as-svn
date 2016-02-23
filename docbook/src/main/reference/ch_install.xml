@@ -255,6 +255,18 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
       <title>Использование стороннего LFS-сервера</title>
 
       <para/>
+
+      <section>
+        <title>Использование общего хранилища</title>
+
+        <para/>
+      </section>
+
+      <section>
+        <title>Использование удаленного LFS-сервера</title>
+
+        <para/>
+      </section>
     </section>
 
     <section>
@@ -272,8 +284,8 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
       <para>И добавить перенаправление на Git as Subversion для страниц по
       маске:</para>
 
-      <programlisting xml:lang="C"><xi:include
-        href="nginx.location.txt" parse="text"/></programlisting>
+      <programlisting xml:lang="C"><xi:include href="nginx.location.txt"
+          parse="text"/></programlisting>
     </section>
   </section>
 
