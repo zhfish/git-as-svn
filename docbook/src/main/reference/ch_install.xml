@@ -243,7 +243,15 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
   <section>
     <title>Настройка LFS сервера</title>
 
-    <para/>
+    <para>В Git as Subversion добавлена поддержка LFS сервера.</para>
+
+    <para>Для пользователей Subversion файлы, хранящиеся в LFS-хранилище ничем
+    не отличаются от обычных файлов.</para>
+
+    <important>
+      <para>В случае отсутствия файла в LFS-хранище для пользователей
+      Subversion они выглядят как файлы, к которым нет доступа.</para>
+    </important>
 
     <section>
       <title>Настройка встроенного LFS-сервера</title>
@@ -254,16 +262,69 @@ ssh git@remote -C "git-lfs-authenticate example download"</programlisting>
     <section>
       <title>Использование стороннего LFS-сервера</title>
 
-      <para/>
-
       <section>
         <title>Использование общего хранилища</title>
 
-        <para/>
+        <para>Идея данного способа интеграции сводится к использованию общего
+        хранилища между Git as Subversion и LFS-сервером.</para>
+
+        <para>При этом, Git as Subversion и LFS-сервер работают с хранилищем
+        независимо и друг о друге ничего не знают.</para>
+
+        <para>Для реализации такой схемы нужно выключить создание метаданных и
+        сжатие для LFS-файлов. А так же выбрать правильную схему размещения
+        данных.</para>
+
+        <para>Например:</para>
+
+        <programlisting language="yaml" xml:lang="C">- !lfs
+  path: /mnt/storage/lfs-objects
+  saveMeta: false
+  compress: false
+  layout: OneLevel</programlisting>
+
+        <para>Поддерживаемые схемы размещения данных:</para>
+
+        <variablelist>
+          <varlistentry>
+            <term xml:id="C">OneLevel</term>
+
+            <listitem>
+              <para><phrase>Схема:</phrase> <code>(0-1)/(0-31)</code></para>
+
+              <para><phrase>Например:</phrase>
+              <filename>e3/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</filename></para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term xml:lang="C">TwoLevels</term>
+
+            <listitem>
+              <para><phrase>Схема:</phrase>
+              <code>(0-1)/(2-3/(0-31)</code></para>
+
+              <para><phrase>Например:</phrase>
+              <filename>e3/b0/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</filename></para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term xml:lang="C">GitLab</term>
+
+            <listitem>
+              <para><phrase>Схема:</phrase>
+              <code>(0-1)/(2-3)/(4-31)</code></para>
+
+              <para><phrase>Например:</phrase>
+              <filename>e3/b0/c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</filename></para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
       </section>
 
       <section>
-        <title>Использование удаленного LFS-сервера</title>
+        <title>Использование удалённого LFS-сервера</title>
 
         <para/>
       </section>
