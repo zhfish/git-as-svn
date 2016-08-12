@@ -25,6 +25,8 @@ cacheConfig: !persistentCache
 
 repositoryMapping: !listMapping
   repositories:
+    p4:
+      repository: !p4 {}
     example:
       access: !acl
         groups:

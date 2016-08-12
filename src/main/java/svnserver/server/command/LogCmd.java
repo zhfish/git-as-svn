@@ -181,11 +181,17 @@ public final class LogCmd extends BaseCmd<LogCmd.Params> {
     int revision = -1;
     for (String target : args.targetPath) {
       final String fullTargetPath = context.getRepositoryPath(target);
+      if (fullTargetPath.isEmpty()) {
+        continue;
+      }
       final int lastChange = context.getRepository().getLastChange(fullTargetPath, endRev);
       if (lastChange >= startRev) {
         targetPaths.add(new VcsCopyFrom(lastChange, fullTargetPath));
         revision = Math.max(revision, lastChange);
       }
+    }
+    if (targetPaths.isEmpty()) {
+      revision = endRev;
     }
     final List<VcsRevision> result = new ArrayList<>();
     int logLimit = limit;
@@ -196,10 +202,14 @@ public final class LogCmd extends BaseCmd<LogCmd.Params> {
 
       int nextRevision = -1;
       final ListIterator<VcsCopyFrom> iter = targetPaths.listIterator();
+      if (!iter.hasNext()){
+        nextRevision = revision - 1;
+      }
       while (iter.hasNext()) {
         final VcsCopyFrom entry = iter.next();
         if (revision == entry.getRevision()) {
-          final int lastChange = context.getRepository().getLastChange(entry.getPath(), revision - 1);
+          int lastChange;
+          lastChange = context.getRepository().getLastChange(entry.getPath(), revision - 1);
           if (lastChange >= revision) {
             throw new IllegalStateException();
           }
